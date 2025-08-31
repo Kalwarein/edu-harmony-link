@@ -8,71 +8,74 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 240 10% 98%;
-    --foreground: 210 20% 15%;
+    /* Sheikh Tais Academy Brand Colors - Yellow & Brown Theme */
+    --background: 0 0% 100%;
+    --foreground: 30 40% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 20% 15%;
+    --card-foreground: 30 40% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 20% 15%;
+    --popover-foreground: 30 40% 15%;
 
-    --primary: 214 84% 50%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 45 100% 50%;  /* Academy Yellow */
+    --primary-foreground: 30 40% 15%;  /* Dark Brown */
 
-    --secondary: 142 70% 45%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 30 40% 40%;  /* Academy Brown */
+    --secondary-foreground: 0 0% 98%;  /* White */
 
-    --muted: 210 20% 95%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 40 30% 92%;  /* Light Cream */
+    --muted-foreground: 30 30% 35%;  /* Medium Brown */
 
-    --accent: 25 95% 60%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 40 30% 95%;  /* Cream/Off-white */
+    --accent-foreground: 30 40% 20%;  /* Dark Brown */
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 20% 88%;
-    --input: 210 20% 90%;
-    --ring: 214 84% 50%;
+    --border: 40 25% 85%;  /* Light Brown Border */
+    --input: 40 25% 90%;  /* Light Cream Input */
+    --ring: 45 100% 50%;  /* Yellow Focus Ring */
 
-    --success: 142 70% 45%;
+    --success: 120 60% 50%;
     --success-foreground: 0 0% 98%;
 
     --warning: 45 93% 58%;
-    --warning-foreground: 210 20% 15%;
+    --warning-foreground: 30 40% 15%;
 
-    --info: 199 95% 50%;
-    --info-foreground: 0 0% 98%;
+    --info: 45 100% 50%;
+    --info-foreground: 30 40% 15%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(214 84% 50%), hsl(199 95% 50%));
-    --gradient-secondary: linear-gradient(135deg, hsl(142 70% 45%), hsl(120 60% 50%));
-    --gradient-hero: linear-gradient(135deg, hsl(214 84% 50%) 0%, hsl(142 70% 45%) 100%);
+    /* Sheikh Tais Academy Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(45 100% 50%), hsl(48 100% 60%));
+    --gradient-secondary: linear-gradient(135deg, hsl(30 40% 40%), hsl(25 35% 35%));
+    --gradient-hero: linear-gradient(135deg, hsl(45 100% 50%) 0%, hsl(40 90% 45%) 50%, hsl(30 40% 40%) 100%);
+    --gradient-academy: linear-gradient(135deg, hsl(45 100% 50%), hsl(30 40% 40%));
     
-    --shadow-elegant: 0 10px 40px -10px hsl(214 84% 50% / 0.2);
-    --shadow-card: 0 4px 20px -4px hsl(210 20% 15% / 0.1);
-    --shadow-float: 0 8px 30px -8px hsl(214 84% 50% / 0.3);
+    --shadow-elegant: 0 10px 30px -10px hsl(45 100% 50% / 0.3);
+    --shadow-card: 0 4px 20px -4px hsl(30 40% 40% / 0.1);
+    --shadow-float: 0 8px 30px -8px hsl(45 100% 50% / 0.3);
+    --shadow-brown: 0 4px 20px hsl(30 40% 40% / 0.2);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Academy specific colors */
+    --academy-yellow: 45 100% 50%;
+    --academy-brown: 30 40% 40%;
+    --academy-cream: 40 30% 95%;
+    --academy-gold: 43 96% 56%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 40 30% 98%;
+    --sidebar-foreground: 30 40% 15%;
+    --sidebar-primary: 45 100% 50%;
+    --sidebar-primary-foreground: 30 40% 15%;
+    --sidebar-accent: 40 30% 95%;
+    --sidebar-accent-foreground: 30 40% 15%;
+    --sidebar-border: 40 25% 85%;
+    --sidebar-ring: 45 100% 50%;
   }
 
   .dark {
