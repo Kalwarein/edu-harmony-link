@@ -14,7 +14,192 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_passwords: {
+        Row: {
+          created_at: string
+          id: string
+          level: Database["public"]["Enums"]["admin_level"]
+          password_hash: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: Database["public"]["Enums"]["admin_level"]
+          password_hash: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: Database["public"]["Enums"]["admin_level"]
+          password_hash?: string
+        }
+        Relationships: []
+      }
+      assignments: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_admin_message: boolean | null
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_admin_message?: boolean | null
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_admin_message?: boolean | null
+          sender_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_erasable: boolean | null
+          is_read: boolean | null
+          recipient_id: string | null
+          title: string
+          type: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_erasable?: boolean | null
+          is_read?: boolean | null
+          recipient_id?: string | null
+          title: string
+          type?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_erasable?: boolean | null
+          is_read?: boolean | null
+          recipient_id?: string | null
+          title?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
+      posts: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          image_url: string | null
+          is_pinned: boolean | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_pinned?: boolean | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_pinned?: boolean | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          admin_level: Database["public"]["Enums"]["admin_level"] | null
+          avatar_url: string | null
+          created_at: string
+          first_name: string
+          id: string
+          is_blocked: boolean | null
+          last_name: string
+          referred_by: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          timeout_until: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_level?: Database["public"]["Enums"]["admin_level"] | null
+          avatar_url?: string | null
+          created_at?: string
+          first_name: string
+          id?: string
+          is_blocked?: boolean | null
+          last_name: string
+          referred_by?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          timeout_until?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_level?: Database["public"]["Enums"]["admin_level"] | null
+          avatar_url?: string | null
+          created_at?: string
+          first_name?: string
+          id?: string
+          is_blocked?: boolean | null
+          last_name?: string
+          referred_by?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          timeout_until?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +208,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      admin_level: "principal" | "teacher" | "coordinator" | "parent_rep"
+      user_role: "student" | "parent" | "teacher" | "admin" | "principal"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +336,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      admin_level: ["principal", "teacher", "coordinator", "parent_rep"],
+      user_role: ["student", "parent", "teacher", "admin", "principal"],
+    },
   },
 } as const
