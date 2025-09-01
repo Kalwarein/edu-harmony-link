@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+import { BottomNav } from "@/components/layout/BottomNav";
 import { AdminAuth } from "@/components/admin/AdminAuth";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { Navbar } from "@/components/layout/Navbar";
@@ -135,7 +136,13 @@ const App = () => {
             <p className="text-muted-foreground mt-2">Coming soon...</p>
           </div>
         );
-      case "profile":
+      case "admin":
+        return (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold text-muted-foreground">Administrator Portal</h2>
+            <p className="text-muted-foreground mt-2">Admin access required...</p>
+          </div>
+        );
         return (
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-muted-foreground">Profile & Settings</h2>
@@ -188,9 +195,16 @@ const App = () => {
             adminLevel={adminLevel}
             showAdminPanel={showAdminPanel}
           />
-          <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${currentPage === 'messages' ? 'py-0' : 'py-8'}`}>
+          <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${currentPage === 'messages' ? 'py-0' : 'py-8'} ${currentPage === 'admin' ? 'pb-20 md:pb-8' : ''}`}>
             {renderCurrentPage()}
           </main>
+          
+          {/* Mobile Bottom Navigation */}
+          <BottomNav 
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            user={user}
+          />
         </div>
         
         <AdminAuth 
