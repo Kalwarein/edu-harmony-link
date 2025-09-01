@@ -38,9 +38,12 @@ interface NavbarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
   onLogout: () => void;
+  onMessagesClick?: () => void;
+  adminLevel?: string | null;
+  showAdminPanel?: boolean;
 }
 
-export const Navbar = ({ user, currentPage, onPageChange, onLogout }: NavbarProps) => {
+export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesClick, adminLevel, showAdminPanel }: NavbarProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const getNavItems = () => {
@@ -115,7 +118,7 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout }: NavbarProp
             </div>
             <div className="hidden sm:block">
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                EduHarmony
+                Sheikh Tais Academy
               </h1>
             </div>
           </div>
@@ -183,7 +186,7 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout }: NavbarProp
                     <GraduationCap className="w-6 h-6 text-white" />
                   </div>
                   <h2 className="text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                    EduHarmony
+                    Sheikh Tais Academy
                   </h2>
                 </div>
                 
