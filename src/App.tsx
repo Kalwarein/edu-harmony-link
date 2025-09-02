@@ -127,16 +127,24 @@ const App = () => {
 
   const renderDashboard = () => {
     const role = user?.profile?.role || "student";
+    const userName = user?.profile?.first_name || user?.email?.split('@')[0] || 'User';
+    const userEmail = user?.email || '';
+    
+    const userProps = {
+      name: userName,
+      email: userEmail,
+      role: role
+    };
     
     switch (role) {
       case "student":
-        return <StudentDashboard user={user} />;
+        return <StudentDashboard user={userProps} />;
       case "parent":
-        return <ParentDashboard user={user} />;
+        return <ParentDashboard user={userProps} />;
       case "staff":
-        return <StaffDashboard user={user} />;
+        return <StaffDashboard user={userProps} />;
       default:
-        return <StudentDashboard user={user} />;
+        return <StudentDashboard user={userProps} />;
     }
   };
 
@@ -146,7 +154,12 @@ const App = () => {
         <AdminPanel
           adminLevel={adminLevel!}
           adminPermissions={adminPermissions}
-          user={user}
+          user={{
+            id: user?.id || '',
+            email: user?.email || '',
+            name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+            role: user?.profile?.role || 'student'
+          }}
           onClose={handleAdminExit}
         />
       );
@@ -156,9 +169,17 @@ const App = () => {
       case "dashboard":
         return renderDashboard();
       case "calendar":
-        return <CalendarPage user={user} />;
+        return <CalendarPage user={{
+          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+          email: user?.email || '',
+          role: user?.profile?.role || 'student'
+        }} />;
       case "grades":
-        return <GradesPage user={user} />;
+        return <GradesPage user={{
+          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+          email: user?.email || '',
+          role: user?.profile?.role || 'student'
+        }} />;
       case "assignments":
         return (
           <div className="text-center py-20">
@@ -169,7 +190,12 @@ const App = () => {
       case "messages":
         return (
           <MessagesPage 
-            user={user} 
+            user={{
+              id: user?.id || '',
+              email: user?.email || '',
+              name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+              role: user?.profile?.role || 'student'
+            }} 
             adminLevel={adminLevel || undefined} 
             adminPermissions={adminPermissions.length > 0 ? adminPermissions : undefined} 
           />

@@ -1,33 +1,51 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Phone, Video, MoreVertical, Smile, Paperclip, Shield, Clock, Ban } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Send, 
+  MoreVertical, 
+  UserX, 
+  Clock, 
+  Shield,
+  Crown,
+  Star,
+  Users,
+  Video,
+  Phone,
+  Archive
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { VideoCall } from "./VideoCall";
 
 interface Message {
   id: string;
-  sender_id: string;
   content: string;
-  is_admin_message: boolean;
+  sender_id: string;
+  sender_name: string;
+  sender_role: string;
+  sender_admin_level?: string | null;
   created_at: string;
-  sender?: {
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    role: string;
-    is_blocked?: boolean;
-    timeout_until?: string;
-  };
+  is_admin_message?: boolean;
 }
 
 interface MessagesPageProps {
-  user: any;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
   adminLevel?: string;
   adminPermissions?: string[];
 }
@@ -42,28 +60,37 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  const isAdmin = adminLevel && adminPermissions;
-  const canManageUsers = adminPermissions?.includes("Manage all users and staff") || 
-                        adminPermissions?.includes("Moderate parent discussions");
-
+  // Set up real-time subscription for new messages
   useEffect(() => {
-    fetchMessages();
-    
-    // Subscribe to real-time messages
     const channel = supabase
-      .channel('messages-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
+      .channel('messages')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'messages' }, 
         (payload) => {
+          console.log('New message:', payload.new);
           const newMessage = payload.new as Message;
-          setMessages(prev => [...prev, newMessage]);
-          setUnreadCount(prev => prev + 1);
-          scrollToBottom();
+          
+          // Fetch sender profile for the new message
+          supabase
+            .from('profiles')
+            .select('first_name, last_name, role, admin_level')
+            .eq('user_id', newMessage.sender_id)
+            .single()
+            .then(({ data: profile, error }) => {
+              const messageWithSender = {
+                ...newMessage,
+                sender_name: profile 
+                  ? `${profile.first_name} ${profile.last_name}`.trim() 
+                  : newMessage.sender_id === user.id ? 'You' : 'Anonymous',
+                sender_role: profile?.role || 'student',
+                sender_admin_level: profile?.admin_level || null
+              };
+              
+              setMessages(prev => [...prev, messageWithSender]);
+              if (newMessage.sender_id !== user.id) {
+                setUnreadCount(prev => prev + 1);
+              }
+            });
         }
       )
       .subscribe();
@@ -71,313 +98,344 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [user.id]);
+
+  // Fetch messages from Supabase
+  const fetchMessages = async () => {
+    try {
+      const { data: messagesData, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Fetch profiles for all unique sender IDs
+      const senderIds = [...new Set(messagesData.map(msg => msg.sender_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, role, admin_level')
+        .in('user_id', senderIds);
+
+      // Create a map of profiles by user_id
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.user_id, profile);
+      });
+
+      // Format messages with sender data
+      const messagesWithSenders = messagesData.map(msg => {
+        const profile = profilesMap.get(msg.sender_id);
+        return {
+          ...msg,
+          sender_name: profile 
+            ? `${profile.first_name} ${profile.last_name}`.trim()
+            : msg.sender_id === user.id ? 'You' : 'Anonymous',
+          sender_role: profile?.role || 'student',
+          sender_admin_level: profile?.admin_level || null
+        };
+      });
+
+      setMessages(messagesWithSenders);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast({
+        title: "Error loading messages",
+        description: "Unable to load chat history",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Load messages on component mount
+  useEffect(() => {
+    fetchMessages();
   }, []);
+
+  // Send message to Supabase
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    setLoading(true);
+    const messageContent = newMessage.trim();
+    setNewMessage("");
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: messageContent,
+          sender_id: user.id,
+          is_admin_message: !!adminLevel
+        });
+
+      if (error) throw error;
+
+      // Message will be added via real-time subscription
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Failed to send message",
+        description: "Please try again",
+        variant: "destructive",
+      });
+      setNewMessage(messageContent); // Restore the message
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startCall = (type: "video" | "audio") => {
+    setCallType(type);
+    setShowVideoCall(true);
+  };
+
+  // Admin actions
+  const handleUserAction = (userId: string, action: "block" | "timeout") => {
+    // Implement user moderation actions
+    toast({
+      title: "Action Performed",
+      description: `User ${action} action performed (Demo)`,
+    });
+  };
+
+  // Scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const fetchMessages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      
-      // Add demo sender data since we don't have the foreign key working yet
-      const messagesWithSenders = (data || []).map(msg => ({
-        ...msg,
-        sender: {
-          first_name: "Demo",
-          last_name: "User",
-          avatar_url: "👤",
-          role: msg.is_admin_message ? "admin" : "student"
-        }
-      }));
-      
-      setMessages(messagesWithSenders);
-    } catch (error) {
-      // Load demo messages if DB fails
-      const demoMessages: Message[] = [
-        {
-          id: "1",
-          sender_id: "admin",
-          content: "Welcome to Sheikh Tais Academy community chat! Please be respectful and follow our guidelines.",
-          is_admin_message: true,
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          sender: { first_name: "Admin", last_name: "System", role: "admin", avatar_url: "🎓" }
-        },
-        {
-          id: "2", 
-          sender_id: "student1",
-          content: "Hello everyone! Excited to be part of this academy!",
-          is_admin_message: false,
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          sender: { first_name: "Sarah", last_name: "Ahmed", role: "student", avatar_url: "👩‍🎓" }
-        }
-      ];
-      setMessages(demoMessages);
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!newMessage.trim()) return;
-
-    setLoading(true);
-    
-    try {
-      const messageData = {
-        sender_id: user.user_id || 'demo-user',
-        content: newMessage,
-        is_admin_message: !!isAdmin
-      };
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert(messageData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setNewMessage("");
-      
-      toast({
-        title: "Message sent!",
-        description: isAdmin ? "Admin message broadcasted to all users." : "Your message has been sent.",
-      });
-    } catch (error) {
-      // Add message locally if DB fails (demo mode)
-      const demoMessage: Message = {
-        id: Date.now().toString(),
-        sender_id: user.user_id || 'demo-user',
-        content: newMessage,
-        is_admin_message: !!isAdmin,
-        created_at: new Date().toISOString(),
-        sender: {
-          first_name: user.first_name || user.name?.split(' ')[0] || "Demo",
-          last_name: user.last_name || user.name?.split(' ')[1] || "User", 
-          avatar_url: user.avatar || "👤",
-          role: user.role || 'student'
-        }
-      };
-      
-      setMessages(prev => [...prev, demoMessage]);
-      setNewMessage("");
-    }
-    
-    setLoading(false);
-  };
-
-  const handleUserAction = async (userId: string, action: 'block' | 'timeout' | 'unblock') => {
-    // Simulate admin action
-    toast({
-      title: "User Action",
-      description: `User ${action} action has been applied.`,
-    });
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Format message timestamp
   const formatMessageTime = (timestamp: string) => {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+  };
+
+  // Get role badge color
+  const getRoleBadgeColor = (role: string, adminLevel?: string | null) => {
+    if (adminLevel) {
+      switch (adminLevel) {
+        case "principal":
+          return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        case "teacher":
+          return "bg-blue-100 text-blue-800 border-blue-200";
+        case "coordinator":
+          return "bg-green-100 text-green-800 border-green-200";
+        case "parent":
+          return "bg-purple-100 text-purple-800 border-purple-200";
+        default:
+          return "bg-gray-100 text-gray-800 border-gray-200";
+      }
+    }
+    
+    switch (role) {
+      case "student":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "parent":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "staff":
+        return "bg-purple-50 text-purple-700 border-purple-200";
+      default:
+        return "bg-gray-50 text-gray-700 border-gray-200";
+    }
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-background">
-      {/* Header */}
-      <Card className="rounded-none border-x-0 border-t-0 bg-card/80 backdrop-blur-sm">
-        <CardHeader className="py-3">
+    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] flex flex-col">
+      <Card className="flex-1 flex flex-col border-0 shadow-none md:border md:shadow-sm">
+        <CardHeader className="border-b bg-card/50 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
-                <span className="text-white font-bold">ST</span>
+              <div className="bg-gradient-to-r from-primary to-secondary w-10 h-10 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold">Sheikh Tais Academy</h3>
-                <p className="text-sm text-muted-foreground">Community Chat</p>
+                <h3 className="font-semibold text-lg">School Chat</h3>
+                <p className="text-sm text-muted-foreground">
+                  {messages.length} messages • {unreadCount} unread
+                </p>
               </div>
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-2">
-                  {unreadCount} new
-                </Badge>
-              )}
             </div>
             
             <div className="flex items-center gap-2">
-              {isAdmin && (
-                <Badge className="bg-gradient-to-r from-primary to-secondary text-white">
-                  <Shield className="w-3 h-3 mr-1" />
-                  {adminLevel?.toUpperCase()}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => startCall("video")}
+                className="flex items-center gap-1"
+              >
+                <Video className="w-4 h-4" />
+                Video
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => startCall("audio")}
+                className="flex items-center gap-1"
+              >
+                <Phone className="w-4 h-4" />
+                Audio
+              </Button>
+              
+              {adminLevel && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  {adminLevel === "principal" && <Crown className="w-3 h-3" />}
+                  {adminLevel === "teacher" && <Star className="w-3 h-3" />}
+                  {adminLevel === "coordinator" && <Shield className="w-3 h-3" />}
+                  {adminLevel === "parent" && <Users className="w-3 h-3" />}
+                  Admin
                 </Badge>
               )}
-              <Button variant="ghost" size="sm">
-                <Phone className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Video className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
             </div>
           </div>
         </CardHeader>
-      </Card>
 
-      {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4 max-w-4xl mx-auto">
-          {messages.map((message) => {
-            const isOwnMessage = message.sender_id === (user.user_id || 'demo-user');
-            const isBlocked = message.sender?.is_blocked;
-            const isTimedOut = message.sender?.timeout_until && 
-                             new Date(message.sender.timeout_until) > new Date();
+        <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => {
+              const isOwnMessage = message.sender_id === user.id;
+              const isAdminMessage = message.is_admin_message || message.sender_admin_level;
 
-            return (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
-              >
-                <Avatar className="w-8 h-8 flex-shrink-0">
-                  <AvatarImage src={message.sender?.avatar_url} />
-                  <AvatarFallback className="bg-gradient-to-r from-primary to-secondary text-white text-xs">
-                    {message.sender?.avatar_url || 
-                     `${message.sender?.first_name?.[0] || 'U'}${message.sender?.last_name?.[0] || ''}`}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className={`flex flex-col max-w-xs lg:max-w-md ${isOwnMessage ? 'items-end' : 'items-start'}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-muted-foreground">
-                      {message.sender?.first_name} {message.sender?.last_name}
-                    </span>
-                    {message.is_admin_message && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Shield className="w-3 h-3 mr-1" />
-                        Admin
-                      </Badge>
-                    )}
-                    {message.sender?.role && (
-                      <Badge variant="outline" className="text-xs">
-                        {message.sender.role}
-                      </Badge>
-                    )}
-                    {(isBlocked || isTimedOut) && (
-                      <Badge variant="destructive" className="text-xs">
-                        {isBlocked ? <Ban className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div
-                    className={`rounded-lg p-3 max-w-full break-words ${
-                      isOwnMessage
-                        ? 'bg-primary text-primary-foreground'
-                        : message.is_admin_message
-                        ? 'bg-gradient-to-r from-secondary to-primary text-white border border-primary/20'
-                        : 'bg-muted'
-                    } ${(isBlocked || isTimedOut) ? 'opacity-50' : ''}`}
-                  >
-                    <p className="text-sm">{message.content}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">
-                      {formatMessageTime(message.created_at)}
-                    </span>
+              return (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
+                >
+                  <Avatar className="w-8 h-8 flex-shrink-0">
+                    <AvatarFallback className={`text-xs font-medium ${
+                      isAdminMessage ? 'bg-primary/10 text-primary' : 'bg-muted'
+                    }`}>
+                      {message.sender_name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className={`flex-1 max-w-[70%] ${isOwnMessage ? 'text-right' : ''}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-sm font-medium ${isOwnMessage ? 'order-2' : ''}`}>
+                        {isOwnMessage ? 'You' : message.sender_name}
+                      </span>
+                      
+                      <div className={`flex items-center gap-1 ${isOwnMessage ? 'order-1 flex-row-reverse' : ''}`}>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs px-1.5 py-0.5 ${getRoleBadgeColor(message.sender_role, message.sender_admin_level)}`}
+                        >
+                          {message.sender_admin_level || message.sender_role}
+                        </Badge>
+                        
+                        <span className="text-xs text-muted-foreground">
+                          {formatMessageTime(message.created_at)}
+                        </span>
+                      </div>
+                    </div>
                     
-                    {canManageUsers && !isOwnMessage && message.sender_id !== 'admin' && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => handleUserAction(message.sender_id, 'timeout')}
-                        >
-                          <Clock className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-destructive"
-                          onClick={() => handleUserAction(message.sender_id, 'block')}
-                        >
-                          <Ban className="w-3 h-3" />
-                        </Button>
+                    <div className={`inline-block max-w-full p-3 rounded-lg ${
+                      isOwnMessage 
+                        ? 'bg-primary text-primary-foreground' 
+                        : isAdminMessage
+                        ? 'bg-secondary/50 border border-secondary'
+                        : 'bg-muted'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {message.content}
+                      </p>
+                    </div>
+
+                    {/* Admin Controls */}
+                    {adminLevel && !isOwnMessage && (
+                      <div className="mt-2 flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <MoreVertical className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" side="top">
+                            <DropdownMenuItem 
+                              onClick={() => handleUserAction(message.sender_id, "timeout")}
+                              className="text-orange-600"
+                            >
+                              <Clock className="w-3 h-3 mr-2" />
+                              Timeout User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleUserAction(message.sender_id, "block")}
+                              className="text-red-600"
+                            >
+                              <UserX className="w-3 h-3 mr-2" />
+                              Block User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Archive className="w-3 h-3 mr-2" />
+                              Archive Message
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
 
-      {/* Message Input */}
-      <Card className="rounded-none border-x-0 border-b-0 bg-card/80 backdrop-blur-sm">
-        <CardContent className="p-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-            className="flex gap-2 items-end"
-          >
-            <Button type="button" variant="ghost" size="sm">
-              <Paperclip className="w-4 h-4" />
-            </Button>
-            
-            <div className="flex-1 relative">
+          <Separator />
+
+          {/* Message Input */}
+          <div className="p-4 bg-card/50">
+            <div className="flex gap-2">
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={
-                  isAdmin 
-                    ? "Send admin message to all users..." 
-                    : "Type your message..."
-                }
-                className="pr-10 bg-background"
-                maxLength={500}
+                placeholder={adminLevel ? "Send message as admin..." : "Type your message..."}
+                className="flex-1"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
               />
               <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm" 
-                className="absolute right-2 top-1/2 -translate-y-1/2"
+                onClick={sendMessage} 
+                disabled={loading || !newMessage.trim()}
+                className="px-4"
               >
-                <Smile className="w-4 h-4" />
+                <Send className="w-4 h-4" />
               </Button>
             </div>
-
-            <Button
-              type="submit"
-              disabled={loading || !newMessage.trim()}
-              className={`${
-                isAdmin 
-                  ? 'bg-gradient-to-r from-secondary to-primary hover:from-secondary/90 hover:to-primary/90' 
-                  : 'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90'
-              }`}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </form>
-          
-          <div className="flex justify-between items-center mt-2">
-            <p className="text-xs text-muted-foreground">
-              {newMessage.length}/500 characters
-            </p>
-            {isAdmin && (
-              <p className="text-xs text-primary font-medium">
-                🔹 Admin mode active - message will be broadcast to all users
-              </p>
-            )}
+            
+            <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+              <span>
+                {newMessage.length}/500 characters
+              </span>
+              <span>
+                Press Enter to send, Shift+Enter for new line
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>
