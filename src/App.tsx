@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginPage } from "@/components/auth/LoginPage";
-import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { AdminAuth } from "@/components/admin/AdminAuth";
 import { AdminPanel } from "@/components/admin/AdminPanel";
@@ -15,29 +15,86 @@ import { StaffDashboard } from "@/components/dashboard/StaffDashboard";
 import { CalendarPage } from "@/components/pages/CalendarPage";
 import { GradesPage } from "@/components/pages/GradesPage";
 import { MessagesPage } from "@/components/messages/MessagesPage";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
+
+interface UserProfile {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  admin_level?: string;
+  avatar_url?: string;
+}
+
+interface ExtendedUser extends User {
+  profile?: UserProfile;
+}
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
-  const [isNewUser, setIsNewUser] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [adminLevel, setAdminLevel] = useState<string | null>(null);
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  const handleOnboardingComplete = (userData: any) => {
+  useEffect(() => {
+    // Check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        setUser({
+          ...session.user,
+          profile: profile || undefined
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          // Fetch user profile
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+          
+          setUser({
+            ...session.user,
+            profile: profile || undefined
+          });
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = (userData: ExtendedUser) => {
     setUser(userData);
-    setIsNewUser(false);
   };
 
-  const handleLogin = (role: string, userData: any) => {
-    setUser({ ...userData, role });
-    setIsNewUser(false);
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setCurrentPage("dashboard");
     setAdminLevel(null);
@@ -69,7 +126,9 @@ const App = () => {
   };
 
   const renderDashboard = () => {
-    switch (user?.role) {
+    const role = user?.profile?.role || "student";
+    
+    switch (role) {
       case "student":
         return <StudentDashboard user={user} />;
       case "parent":
@@ -140,13 +199,13 @@ const App = () => {
         return (
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold text-muted-foreground">Administrator Portal</h2>
-            <p className="text-muted-foreground mt-2">Admin access required...</p>
-          </div>
-        );
-        return (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-muted-foreground">Profile & Settings</h2>
-            <p className="text-muted-foreground mt-2">Coming soon...</p>
+            <p className="text-muted-foreground mt-2 mb-4">Access administrative functions</p>
+            <Button 
+              onClick={() => setShowAdminAuth(true)}
+              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+            >
+              Admin Login
+            </Button>
           </div>
         );
       default:
@@ -154,20 +213,25 @@ const App = () => {
     }
   };
 
-  // Show onboarding for new users
-  if (isNewUser && !user) {
+  // Show loading
+  if (loading) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <OnboardingFlow onComplete={handleOnboardingComplete} />
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <div className="bg-gradient-to-r from-primary to-secondary w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
+                <div className="w-8 h-8 bg-white/20 rounded-lg"></div>
+              </div>
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          </div>
         </TooltipProvider>
       </QueryClientProvider>
     );
   }
 
-  // Show login for returning users
+  // Show login for users not authenticated
   if (!user) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -187,7 +251,11 @@ const App = () => {
         <Sonner />
         <div className="min-h-screen bg-background">
           <Navbar 
-            user={user} 
+            user={{
+              name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+              email: user?.email || '',
+              role: user?.profile?.role || 'student'
+            }} 
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             onLogout={handleLogout}
@@ -203,7 +271,11 @@ const App = () => {
           <BottomNav 
             currentPage={currentPage}
             onPageChange={setCurrentPage}
-            user={user}
+            user={{
+              name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+              email: user?.email || '',
+              role: user?.profile?.role || 'student'
+            }}
           />
         </div>
         

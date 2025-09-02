@@ -37,6 +37,8 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [callType, setCallType] = useState<"video" | "audio">("video");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -379,6 +381,13 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
           </div>
         </CardContent>
       </Card>
+
+      <VideoCall
+        isOpen={showVideoCall}
+        onClose={() => setShowVideoCall(false)}
+        callType={callType}
+        participants={[]} // In a real app, this would be dynamic
+      />
     </div>
   );
 };

@@ -7,24 +7,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { GraduationCap, Users, Shield, Mail, Lock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LoginPageProps {
-  onLogin: (role: string, userData: any) => void;
+  onLogin: (user: any) => void;
 }
 
 export const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !role) {
+    if (!email || !password) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all fields and select your role.",
+        description: "Please fill in all fields.",
         variant: "destructive",
       });
       return;
@@ -32,15 +35,100 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
 
     setLoading(true);
     
-    // Simulate login process
-    setTimeout(() => {
-      onLogin(role, { email, name: email.split('@')[0] });
-      setLoading(false);
-      toast({
-        title: "Login Successful",
-        description: `Welcome back! Logging in as ${role}.`,
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-    }, 1000);
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .single();
+
+        onLogin({
+          ...data.user,
+          profile: profile || null
+        });
+
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || !fullName || !role) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: fullName,
+            role: role
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Create profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: data.user.id,
+            first_name: fullName.split(' ')[0],
+            last_name: fullName.split(' ').slice(1).join(' '),
+            role: role as any
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+        }
+
+        toast({
+          title: "Account Created",
+          description: "Please check your email to verify your account.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Sign Up Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const roleOptions = [
@@ -72,7 +160,7 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -80,24 +168,6 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
               
               <TabsContent value="login" className="space-y-4">
                 <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="role">I am a...</Label>
-                    <Select value={role} onValueChange={setRole}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              <option.icon className="w-4 h-4" />
-                              {option.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -146,10 +216,10 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
               </TabsContent>
 
               <TabsContent value="signup" className="space-y-4">
-                <form className="space-y-4">
+                <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-role">I am a...</Label>
-                    <Select>
+                    <Select value={role} onValueChange={setRole}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select your role" />
                       </SelectTrigger>
@@ -172,6 +242,8 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                       <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="fullname"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
                         className="pl-10"
                         placeholder="Enter your full name"
                       />
@@ -185,6 +257,8 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                       <Input
                         id="signup-email"
                         type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="pl-10"
                         placeholder="Enter your email"
                       />
@@ -198,6 +272,8 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                       <Input
                         id="signup-password"
                         type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="pl-10"
                         placeholder="Create a password"
                       />
@@ -207,8 +283,9 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-to-r from-secondary to-primary hover:from-secondary/90 hover:to-primary/90 shadow-lg"
+                    disabled={loading}
                   >
-                    Create Account
+                    {loading ? "Creating Account..." : "Create Account"}
                   </Button>
                 </form>
               </TabsContent>
