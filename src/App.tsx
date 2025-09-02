@@ -126,17 +126,17 @@ const App = () => {
   };
 
   const renderDashboard = () => {
-    const role = user?.profile?.role || "student";
     const userName = user?.profile?.first_name || user?.email?.split('@')[0] || 'User';
     const userEmail = user?.email || '';
+    const userRole = user?.profile?.role || 'student';
     
     const userProps = {
       name: userName,
       email: userEmail,
-      role: role
+      role: userRole
     };
     
-    switch (role) {
+    switch (userRole) {
       case "student":
         return <StudentDashboard user={userProps} />;
       case "parent":
