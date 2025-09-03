@@ -262,7 +262,7 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] flex flex-col">
+    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] flex flex-col pb-20 md:pb-0">{/* Added bottom padding for mobile */}
       <Card className="flex-1 flex flex-col border-0 shadow-none md:border md:shadow-sm">
         <CardHeader className="border-b bg-card/50 backdrop-blur-sm">
           <div className="flex items-center justify-between">
@@ -403,9 +403,13 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
           </div>
 
           <Separator />
+        </CardContent>
+      </Card>
 
-          {/* Message Input */}
-          <div className="p-4 bg-card/50">
+      {/* Fixed Message Input - Above Bottom Navigation */}
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-3">
             <div className="flex gap-2">
               <Input
                 value={newMessage}
@@ -432,13 +436,13 @@ export const MessagesPage = ({ user, adminLevel, adminPermissions }: MessagesPag
               <span>
                 {newMessage.length}/500 characters
               </span>
-              <span>
+              <span className="hidden sm:block">
                 Press Enter to send, Shift+Enter for new line
               </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <VideoCall
         isOpen={showVideoCall}
