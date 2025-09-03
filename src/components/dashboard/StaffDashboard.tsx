@@ -7,9 +7,10 @@ interface StaffDashboardProps {
     email: string;
     role: string;
   };
+  onNavigate?: (page: string) => void;
 }
 
-export const StaffDashboard = ({ user }: StaffDashboardProps) => {
+export const StaffDashboard = ({ user, onNavigate }: StaffDashboardProps) => {
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -28,11 +29,11 @@ export const StaffDashboard = ({ user }: StaffDashboardProps) => {
       {/* Quick Stats - Staff View */}
       <div>
         <h2 className="text-xl font-bold text-foreground mb-4">Class Overview</h2>
-        <DashboardStats />
+        <DashboardStats user={{ id: '', ...user }} />
       </div>
 
       {/* Dashboard Sections */}
-      <DashboardSections />
+      <DashboardSections user={{ id: '', ...user }} onNavigate={onNavigate} />
     </div>
   );
 };

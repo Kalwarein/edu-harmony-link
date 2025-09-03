@@ -26,7 +26,8 @@ import {
   Users,
   MessageSquare,
   FileText,
-  BarChart3
+  BarChart3,
+  Megaphone
 } from "lucide-react";
 
 interface NavbarProps {
@@ -49,9 +50,9 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
   const getNavItems = () => {
     const commonItems = [
       { id: "dashboard", label: "Dashboard", icon: Home },
-      { id: "calendar", label: "Calendar", icon: Calendar },
+      { id: "announcements", label: "School Feed", icon: Megaphone },
       { id: "messages", label: "Messages", icon: MessageSquare },
-      { id: "resources", label: "Resources", icon: FileText },
+      { id: "calendar", label: "Calendar", icon: Calendar },
     ];
 
     if (user.role === "student") {
@@ -66,16 +67,13 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
       return [
         ...commonItems,
         { id: "grades", label: "Child's Grades", icon: BarChart3 },
-        { id: "attendance", label: "Attendance", icon: Users },
       ];
     }
 
     if (user.role === "staff") {
       return [
         ...commonItems,
-        { id: "roster", label: "Class Roster", icon: Users },
         { id: "assignments", label: "Assignments", icon: BookOpen },
-        { id: "attendance", label: "Attendance", icon: BarChart3 },
       ];
     }
 

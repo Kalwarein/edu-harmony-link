@@ -7,9 +7,10 @@ interface StudentDashboardProps {
     email: string;
     role: string;
   };
+  onNavigate?: (page: string) => void;
 }
 
-export const StudentDashboard = ({ user }: StudentDashboardProps) => {
+export const StudentDashboard = ({ user, onNavigate }: StudentDashboardProps) => {
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -27,12 +28,12 @@ export const StudentDashboard = ({ user }: StudentDashboardProps) => {
 
       {/* Quick Stats */}
       <div>
-        <h2 className="text-xl font-bold text-foreground mb-4">Quick Stats</h2>
-        <DashboardStats />
+        <h2 className="text-xl font-bold text-foreground mb-4">Quick Overview</h2>
+        <DashboardStats user={{ id: '', ...user }} />
       </div>
 
       {/* Dashboard Sections */}
-      <DashboardSections />
+      <DashboardSections user={{ id: '', ...user }} onNavigate={onNavigate} />
     </div>
   );
 };

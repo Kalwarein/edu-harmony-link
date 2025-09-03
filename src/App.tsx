@@ -15,6 +15,7 @@ import { StaffDashboard } from "@/components/dashboard/StaffDashboard";
 import { CalendarPage } from "@/components/pages/CalendarPage";
 import { GradesPage } from "@/components/pages/GradesPage";
 import { MessagesPage } from "@/components/messages/MessagesPage";
+import { AnnouncementsPage } from "@/components/pages/AnnouncementsPage";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -44,31 +45,42 @@ const App = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        setUser({
-          ...session.user,
-          profile: profile || undefined
-        });
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth changes
+    // Listen for auth changes first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
-          // Fetch user profile
+          // Use setTimeout to prevent auth deadlock
+          setTimeout(async () => {
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .single();
+              
+              setUser({
+                ...session.user,
+                profile: profile || undefined
+              });
+            } catch (error) {
+              console.error('Error fetching profile:', error);
+              setUser({
+                ...session.user,
+                profile: undefined
+              });
+            }
+          }, 0);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        try {
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
@@ -79,12 +91,18 @@ const App = () => {
             ...session.user,
             profile: profile || undefined
           });
-        } else {
-          setUser(null);
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          setUser({
+            ...session.user,
+            profile: undefined
+          });
         }
-        setLoading(false);
+      } else {
+        setUser(null);
       }
-    );
+      setLoading(false);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -138,13 +156,13 @@ const App = () => {
     
     switch (userRole) {
       case "student":
-        return <StudentDashboard user={userProps} />;
+        return <StudentDashboard user={userProps} onNavigate={setCurrentPage} />;
       case "parent":
-        return <ParentDashboard user={userProps} />;
+        return <ParentDashboard user={userProps} onNavigate={setCurrentPage} />;
       case "staff":
-        return <StaffDashboard user={userProps} />;
+        return <StaffDashboard user={userProps} onNavigate={setCurrentPage} />;
       default:
-        return <StudentDashboard user={userProps} />;
+        return <StudentDashboard user={userProps} onNavigate={setCurrentPage} />;
     }
   };
 
@@ -181,12 +199,12 @@ const App = () => {
           role: user?.profile?.role || 'student'
         }} />;
       case "assignments":
-        return (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-muted-foreground">Assignments Page</h2>
-            <p className="text-muted-foreground mt-2">Coming soon...</p>
-          </div>
-        );
+        return <AnnouncementsPage user={{
+          id: user?.id || '',
+          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+          email: user?.email || '',
+          role: user?.profile?.role || 'student'
+        }} />;
       case "messages":
         return (
           <MessagesPage 
@@ -200,27 +218,13 @@ const App = () => {
             adminPermissions={adminPermissions.length > 0 ? adminPermissions : undefined} 
           />
         );
-      case "resources":
-        return (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-muted-foreground">Resources Page</h2>
-            <p className="text-muted-foreground mt-2">Coming soon...</p>
-          </div>
-        );
-      case "attendance":
-        return (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-muted-foreground">Attendance Page</h2>
-            <p className="text-muted-foreground mt-2">Coming soon...</p>
-          </div>
-        );
-      case "roster":
-        return (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-muted-foreground">Class Roster Page</h2>
-            <p className="text-muted-foreground mt-2">Coming soon...</p>
-          </div>
-        );
+      case "announcements":
+        return <AnnouncementsPage user={{
+          id: user?.id || '',
+          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+          email: user?.email || '',
+          role: user?.profile?.role || 'student'
+        }} />;
       case "admin":
         return (
           <div className="text-center py-20">
