@@ -62,6 +62,132 @@ export type Database = {
         }
         Relationships: []
       }
+      calls: {
+        Row: {
+          call_type: string
+          caller_id: string
+          duration: number | null
+          ended_at: string | null
+          id: string
+          participants: string[] | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          call_type?: string
+          caller_id: string
+          duration?: number | null
+          ended_at?: string | null
+          id?: string
+          participants?: string[] | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          call_type?: string
+          caller_id?: string
+          duration?: number | null
+          ended_at?: string | null
+          id?: string
+          participants?: string[] | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          end_date: string | null
+          end_time: string | null
+          event_date: string
+          event_time: string | null
+          event_type: string | null
+          id: string
+          location: string | null
+          priority: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          event_date: string
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          priority?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          event_date?: string
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          priority?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -199,6 +325,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      reactions: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          reaction_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          reaction_type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          reaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
