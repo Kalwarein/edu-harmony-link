@@ -16,6 +16,7 @@ import { CalendarPage } from "@/components/pages/CalendarPage";
 import { GradesPage } from "@/components/pages/GradesPage";
 import { MessagesPage } from "@/components/messages/MessagesPage";
 import { AnnouncementsPage } from "@/components/pages/AnnouncementsPage";
+import { NotificationsPage } from "@/components/notifications/NotificationsPage";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -200,6 +201,13 @@ const App = () => {
         }} />;
       case "assignments":
         return <AnnouncementsPage user={{
+          id: user?.id || '',
+          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+          email: user?.email || '',
+          role: user?.profile?.role || 'student'
+        }} />;
+      case "notifications":
+        return <NotificationsPage user={{
           id: user?.id || '',
           name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
           email: user?.email || '',

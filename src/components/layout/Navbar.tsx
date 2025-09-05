@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -29,6 +30,7 @@ import {
   BarChart3,
   Megaphone
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavbarProps {
   user: {
@@ -46,11 +48,46 @@ interface NavbarProps {
 
 export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesClick, adminLevel, showAdminPanel }: NavbarProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    
+    // Real-time subscription for notifications
+    const channel = supabase
+      .channel('notification-count')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => fetchUnreadCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact' })
+        .eq('is_read', false)
+        .or(`recipient_id.eq.${user.email},recipient_id.is.null`);
+        
+      if (!error && data) {
+        setUnreadCount(data.length || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching notification count:', error);
+    }
+  };
 
   const getNavItems = () => {
     const commonItems = [
       { id: "dashboard", label: "Dashboard", icon: Home },
       { id: "announcements", label: "School Feed", icon: Megaphone },
+      { id: "notifications", label: "Notifications", icon: Bell },
       { id: "messages", label: "Messages", icon: MessageSquare },
       { id: "calendar", label: "Calendar", icon: Calendar },
     ];
@@ -83,26 +120,39 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
   const navItems = getNavItems();
 
   const NavItems = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <>
+    <div className="flex flex-col space-y-2">
       {navItems.map((item) => (
         <Button
           key={item.id}
           variant={currentPage === item.id ? "default" : "ghost"}
-          className={`justify-start gap-2 ${
+          className={`justify-start gap-2 w-full ${
             currentPage === item.id 
               ? "bg-primary text-primary-foreground shadow-sm" 
               : "hover:bg-muted"
           }`}
           onClick={() => {
-            onPageChange(item.id);
+            if (item.id === "notifications") {
+              onPageChange("notifications");
+            } else if (item.id === "messages") {
+              onMessagesClick?.();
+            } else {
+              onPageChange(item.id);
+            }
             onItemClick?.();
           }}
         >
           <item.icon className="w-4 h-4" />
           {item.label}
+          {item.id === "notifications" && unreadCount > 0 && (
+            <Badge 
+              className="ml-auto h-5 w-5 text-xs rounded-full bg-red-500 text-white flex items-center justify-center p-0"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
         </Button>
       ))}
-    </>
+    </div>
   );
 
   return (
@@ -123,17 +173,28 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-2">
-            <NavItems />
+            <div className="flex flex-col space-y-1">
+              <NavItems />
+            </div>
           </div>
 
           {/* Right side actions */}
           <div className="flex items-center gap-2">
             {/* Notifications */}
-            <Button variant="ghost" size="icon" className="relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative"
+              onClick={() => onPageChange('notifications')}
+            >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-accent-foreground text-xs rounded-full flex items-center justify-center">
-                3
-              </span>
+              {unreadCount > 0 && (
+                <Badge 
+                  className="absolute -top-1 -right-1 h-5 w-5 text-xs rounded-full bg-red-500 text-white flex items-center justify-center p-0"
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
             </Button>
 
             {/* User dropdown */}

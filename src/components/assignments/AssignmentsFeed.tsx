@@ -4,24 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
-import { BookOpen, Calendar, Clock, FileText, User } from "lucide-react";
+import { BookOpen, Calendar, Clock, FileText } from "lucide-react";
 import { ShimmerCard, ShimmerText, ShimmerAvatar } from "@/components/ui/shimmer";
-import { formatDistanceToNow, format, isAfter } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 interface Assignment {
   id: string;
   title: string;
-  description: string;
-  due_date: string;
+  description: string | null;
+  due_date: string | null;
   created_at: string;
   created_by: string;
-  creator?: {
-    first_name: string;
-    last_name: string;
-    role: string;
-    admin_level?: string;
-  };
 }
 
 interface AssignmentsFeedProps {
@@ -57,30 +51,13 @@ export const AssignmentsFeed = ({ user }: AssignmentsFeedProps) => {
 
   const fetchAssignments = async () => {
     try {
-      const { data: assignmentsData, error } = await supabase
+      const { data, error } = await supabase
         .from('assignments')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fetch creator profiles separately
-      const assignmentsWithCreators = await Promise.all(
-        (assignmentsData || []).map(async (assignment) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, role, admin_level')
-            .eq('user_id', assignment.created_by)
-            .single();
-          
-          return {
-            ...assignment,
-            creator: profile || undefined
-          };
-        })
-      );
-
-      setAssignments(assignmentsWithCreators);
+      setAssignments(data || []);
     } catch (error) {
       console.error('Error fetching assignments:', error);
       toast({
@@ -93,28 +70,31 @@ export const AssignmentsFeed = ({ user }: AssignmentsFeedProps) => {
     }
   };
 
-  const getStatusBadge = (dueDate: string) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const hoursUntilDue = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const getPriorityColor = (dueDate: string | null) => {
+    if (!dueDate) return "bg-muted";
     
-    if (hoursUntilDue < 0) {
-      return <Badge variant="destructive">Overdue</Badge>;
-    } else if (hoursUntilDue < 24) {
-      return <Badge className="bg-orange-500 text-white">Due Soon</Badge>;
-    } else if (hoursUntilDue < 72) {
-      return <Badge className="bg-yellow-500 text-white">Due This Week</Badge>;
-    } else {
-      return <Badge variant="secondary">Upcoming</Badge>;
-    }
+    const due = new Date(dueDate);
+    const now = new Date();
+    const daysDiff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff < 1) return "bg-red-100 text-red-800 border-red-200";
+    if (daysDiff <= 3) return "bg-orange-100 text-orange-800 border-orange-200";
+    if (daysDiff <= 7) return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    return "bg-green-100 text-green-800 border-green-200";
   };
 
-  const handleSubmitAssignment = async (assignmentId: string) => {
-    // Placeholder for assignment submission
-    toast({
-      title: "Assignment Submission",
-      description: "Assignment submission feature coming soon!",
-    });
+  const getPriorityLabel = (dueDate: string | null) => {
+    if (!dueDate) return "No due date";
+    
+    const due = new Date(dueDate);
+    const now = new Date();
+    const daysDiff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff < 0) return "Overdue";
+    if (daysDiff < 1) return "Due today";
+    if (daysDiff <= 3) return "Due soon";
+    if (daysDiff <= 7) return "Due this week";
+    return "Upcoming";
   };
 
   if (loading) {
@@ -126,13 +106,13 @@ export const AssignmentsFeed = ({ user }: AssignmentsFeedProps) => {
               <div className="flex items-center space-x-3">
                 <ShimmerAvatar />
                 <div className="space-y-2 flex-1">
-                  <ShimmerText className="w-1/2" />
-                  <ShimmerText className="w-1/3 h-3" />
+                  <ShimmerText className="w-2/3" />
+                  <ShimmerText className="w-1/2 h-3" />
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <ShimmerCard className="h-20" />
+              <ShimmerCard className="h-24" />
             </CardContent>
           </Card>
         ))}
@@ -148,9 +128,9 @@ export const AssignmentsFeed = ({ user }: AssignmentsFeedProps) => {
             <div className="w-16 h-16 mx-auto bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
               <BookOpen className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-semibold">No Assignments</h3>
+            <h3 className="text-xl font-semibold">No Assignments Yet</h3>
             <p className="text-muted-foreground">
-              You're all caught up! No assignments have been posted yet.
+              Check back later for new assignments from your teachers.
             </p>
           </div>
         </CardContent>
@@ -161,74 +141,71 @@ export const AssignmentsFeed = ({ user }: AssignmentsFeedProps) => {
   return (
     <div className="space-y-6">
       {assignments.map((assignment) => (
-        <Card key={assignment.id} className="overflow-hidden hover:shadow-md transition-shadow">
+        <Card key={assignment.id} className="overflow-hidden hover:shadow-lg transition-all duration-200 animate-fade-in">
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
-                <Avatar className="w-10 h-10">
+                <Avatar className="w-12 h-12">
                   <AvatarFallback className="bg-gradient-to-r from-primary to-secondary text-white font-semibold">
-                    {assignment.creator?.first_name?.[0]}{assignment.creator?.last_name?.[0]}
+                    <BookOpen className="w-6 h-6" />
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm">
-                      {assignment.creator?.first_name} {assignment.creator?.last_name}
-                    </p>
-                    {assignment.creator?.role === 'staff' && (
-                      <Badge variant="outline" className="text-xs">Teacher</Badge>
+                <div className="flex-1">
+                  <CardTitle className="text-lg font-bold">{assignment.title}</CardTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className="text-xs">
+                      Assignment
+                    </Badge>
+                    {assignment.due_date && (
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${getPriorityColor(assignment.due_date)}`}
+                      >
+                        {getPriorityLabel(assignment.due_date)}
+                      </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    Posted {formatDistanceToNow(new Date(assignment.created_at), { addSuffix: true })}
-                  </p>
                 </div>
               </div>
-              {assignment.due_date && getStatusBadge(assignment.due_date)}
             </div>
-            
-            <CardTitle className="flex items-center gap-2 mt-3">
-              <BookOpen className="w-5 h-5 text-primary" />
-              {assignment.title}
-            </CardTitle>
           </CardHeader>
           
           <CardContent>
             {assignment.description && (
-              <p className="whitespace-pre-wrap text-foreground leading-relaxed mb-4">
+              <p className="text-foreground leading-relaxed mb-4">
                 {assignment.description}
               </p>
             )}
             
-            {assignment.due_date && (
-              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg mb-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium">Due:</span>
-                  <span>{format(new Date(assignment.due_date), 'PPP p')}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  ({formatDistanceToNow(new Date(assignment.due_date), { addSuffix: true })})
-                </div>
-              </div>
-            )}
-            
-            {user.role === 'student' && (
-              <div className="flex gap-3 mt-4">
-                <Button 
-                  onClick={() => handleSubmitAssignment(assignment.id)}
-                  className="flex items-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  Submit Assignment
-                </Button>
-                <Button variant="outline" className="flex items-center gap-2">
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  Add to Calendar
+                  <span>
+                    Assigned {formatDistanceToNow(new Date(assignment.created_at), { addSuffix: true })}
+                  </span>
+                </div>
+                {assignment.due_date && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>
+                      Due {format(new Date(assignment.due_date), 'PPP')}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  View Details
+                </Button>
+                <Button size="sm" className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Submit Work
                 </Button>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       ))}
