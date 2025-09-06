@@ -33,10 +33,10 @@ export const BottomNav = ({ currentPage, onPageChange, user }: BottomNavProps) =
       path: "calendar"
     },
     { 
-      id: "notifications", 
-      label: "Notifications", 
+      id: "alerts", 
+      label: "Alerts", 
       icon: Bell,
-      path: "notifications"
+      path: "alerts"
     },
     { 
       id: "assignments", 
@@ -72,14 +72,17 @@ export const BottomNav = ({ currentPage, onPageChange, user }: BottomNavProps) =
               onClick={() => onPageChange(item.path)}
               className={`
                 h-full rounded-none border-none flex flex-col items-center justify-center gap-1 px-1
+                transition-all duration-200 hover:scale-110 active:scale-95
                 ${isActive 
-                  ? "text-academy-brown bg-academy-cream" 
-                  : "text-muted-foreground hover:text-academy-brown hover:bg-academy-cream/50"
+                  ? "text-primary bg-primary/10 scale-110 shadow-md" 
+                  : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                 }
               `}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <item.icon className={`transition-all duration-200 ${isActive ? 'w-6 h-6' : 'w-5 h-5'}`} />
+              <span className={`text-xs font-medium transition-all duration-200 ${isActive ? 'font-bold' : ''}`}>
+                {item.label}
+              </span>
             </Button>
           );
         })}

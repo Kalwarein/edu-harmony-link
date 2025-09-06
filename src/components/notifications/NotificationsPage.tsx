@@ -83,7 +83,19 @@ export const NotificationsPage = ({ user }: NotificationsPageProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      
+      // Get read notifications from localStorage for broadcast notifications
+      const readNotifications = JSON.parse(localStorage.getItem(`read_notifications_${user.id}`) || '[]');
+      
+      // Mark broadcast notifications as read if they're in localStorage
+      const processedData = (data || []).map(notification => {
+        if (!notification.recipient_id && readNotifications.includes(notification.id)) {
+          return { ...notification, is_read: true };
+        }
+        return notification;
+      });
+      
+      setNotifications(processedData);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       toast({
@@ -98,13 +110,27 @@ export const NotificationsPage = ({ user }: NotificationsPageProps) => {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId)
-        .eq('recipient_id', user.id);
+      // For broadcast notifications (recipient_id is null), we need to track read status differently
+      // Since we can't update broadcast notifications, we'll store read status locally
+      const notification = notifications.find(n => n.id === notificationId);
+      if (!notification) return;
 
-      if (error) throw error;
+      if (notification.recipient_id) {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notificationId)
+          .eq('recipient_id', user.id);
+
+        if (error) throw error;
+      } else {
+        // For broadcast notifications, store read status in localStorage
+        const readNotifications = JSON.parse(localStorage.getItem(`read_notifications_${user.id}`) || '[]');
+        if (!readNotifications.includes(notificationId)) {
+          readNotifications.push(notificationId);
+          localStorage.setItem(`read_notifications_${user.id}`, JSON.stringify(readNotifications));
+        }
+      }
       
       setNotifications(prev =>
         prev.map(notif =>
