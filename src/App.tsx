@@ -216,7 +216,7 @@ const App = () => {
         }} />;
       case "messages":
         return (
-          <MessagesPage 
+          <EnhancedMessagesPage 
             user={{
               id: user?.id || '',
               email: user?.email || '',

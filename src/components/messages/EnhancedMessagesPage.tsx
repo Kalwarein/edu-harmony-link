@@ -90,14 +90,14 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
             .eq('user_id', payload.new.sender_id)
             .single();
 
-          const newMessage = {
+          const newMessage: Message = {
             ...payload.new,
             sender_name: senderProfile 
               ? `${senderProfile.first_name} ${senderProfile.last_name}`
               : 'Unknown User',
             sender_role: senderProfile?.role || 'student',
             sender_admin_level: senderProfile?.admin_level
-          };
+          } as Message;
 
           setMessages(prev => [...prev, newMessage]);
           
@@ -120,32 +120,39 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
 
   const fetchMessages = async () => {
     try {
-      // Fetch messages with sender information
+      // Fetch messages with sender information by joining manually
       const { data: messagesData, error } = await supabase
         .from('messages')
-        .select(`
-          *,
-          profiles!messages_sender_id_fkey (
-            first_name,
-            last_name,
-            role,
-            admin_level
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: true })
         .limit(100);
 
       if (error) throw error;
 
+      // Get unique sender IDs
+      const senderIds = [...new Set(messagesData?.map(msg => msg.sender_id) || [])];
+      
+      // Fetch profiles for all senders
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, role, admin_level')
+        .in('user_id', senderIds);
+
+      // Create a lookup map
+      const profilesMap = new Map(profilesData?.map(profile => [profile.user_id, profile]) || []);
+
       // Format messages with sender info
-      const formattedMessages = messagesData?.map(msg => ({
-        ...msg,
-        sender_name: msg.profiles 
-          ? `${msg.profiles.first_name} ${msg.profiles.last_name}`
-          : 'Unknown User',
-        sender_role: msg.profiles?.role || 'student',
-        sender_admin_level: msg.profiles?.admin_level
-      })) || [];
+      const formattedMessages = messagesData?.map(msg => {
+        const profile = profilesMap.get(msg.sender_id);
+        return {
+          ...msg,
+          sender_name: profile 
+            ? `${profile.first_name} ${profile.last_name}`
+            : 'Unknown User',
+          sender_role: profile?.role || 'student',
+          sender_admin_level: profile?.admin_level
+        };
+      }) || [];
 
       setMessages(formattedMessages);
     } catch (error) {
@@ -188,7 +195,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
               .upload(`messages/${fileName}`, attachmentFile);
             
             if (retryError) throw retryError;
-            data = retryData;
+            const uploadData = retryData;
           } else {
             throw uploadError;
           }
@@ -196,7 +203,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
 
         const { data: { publicUrl } } = supabase.storage
           .from('chat-attachments')
-          .getPublicUrl(data.path);
+          .getPublicUrl(`messages/${fileName}`);
 
         attachmentUrl = publicUrl;
         attachmentType = attachmentFile.type;
@@ -279,7 +286,8 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
   const handleReply = (message: Message) => {
     setReplyingTo(message);
     // Focus on input field
-    document.querySelector('input[placeholder*="message"]')?.focus();
+    const inputElement = document.querySelector('input[placeholder*="message"]') as HTMLInputElement;
+    inputElement?.focus();
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {

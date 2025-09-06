@@ -190,27 +190,53 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_name: string | null
+          attachment_type: string | null
+          attachment_url: string | null
           content: string
           created_at: string
           id: string
           is_admin_message: boolean | null
+          reply_to: string | null
+          reply_to_content: string | null
+          reply_to_sender: string | null
           sender_id: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
           content: string
           created_at?: string
           id?: string
           is_admin_message?: boolean | null
+          reply_to?: string | null
+          reply_to_content?: string | null
+          reply_to_sender?: string | null
           sender_id: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
           content?: string
           created_at?: string
           id?: string
           is_admin_message?: boolean | null
+          reply_to?: string | null
+          reply_to_content?: string | null
+          reply_to_sender?: string | null
           sender_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
