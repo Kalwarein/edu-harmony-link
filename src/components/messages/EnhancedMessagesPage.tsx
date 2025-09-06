@@ -185,6 +185,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
           .from('chat-attachments')
           .upload(`messages/${fileName}`, attachmentFile);
 
+        let uploadData = data;
         if (uploadError) {
           // If storage bucket doesn't exist, create it first
           if (uploadError.message.includes('Bucket not found')) {
@@ -195,7 +196,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
               .upload(`messages/${fileName}`, attachmentFile);
             
             if (retryError) throw retryError;
-            const uploadData = retryData;
+            uploadData = retryData;
           } else {
             throw uploadError;
           }
@@ -203,7 +204,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
 
         const { data: { publicUrl } } = supabase.storage
           .from('chat-attachments')
-          .getPublicUrl(`messages/${fileName}`);
+          .getPublicUrl(uploadData?.path || `messages/${fileName}`);
 
         attachmentUrl = publicUrl;
         attachmentType = attachmentFile.type;
