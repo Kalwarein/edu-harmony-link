@@ -355,7 +355,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <MessageSquare className="w-5 h-5 text-primary" />
-              <CardTitle className="text-xl">School Chat</CardTitle>
+              <CardTitle className="text-xl"></CardTitle>
             </div>
             
             <div className="flex items-center space-x-2">
