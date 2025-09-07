@@ -83,7 +83,7 @@ export const AdminPanel = ({ adminLevel, adminPermissions, user, onClose }: Admi
 
     try {
       const postData = {
-        author_id: user.user_id || 'demo-admin',
+        author_id: user.id || 'demo-admin',
         title: postTitle,
         content: postContent,
         expires_at: postExpiry ? new Date(postExpiry).toISOString() : null,
@@ -196,7 +196,7 @@ export const AdminPanel = ({ adminLevel, adminPermissions, user, onClose }: Admi
         title: assignmentTitle,
         description: assignmentDescription,
         due_date: assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null,
-        created_by: user.user_id || 'demo-admin'
+        created_by: user.id || 'demo-admin'
       };
 
       const { data, error } = await supabase

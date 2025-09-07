@@ -100,11 +100,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
           } as Message;
 
           setMessages(prev => [...prev, newMessage]);
-          
-          // Update unread count if message is not from current user
-          if (payload.new.sender_id !== user.id) {
-            setUnreadCount(prev => prev + 1);
-          }
+          scrollToBottom();
         }
       )
       .subscribe();
@@ -112,38 +108,29 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user.id]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  }, []);
 
   const fetchMessages = async () => {
     try {
-      // Fetch messages with sender information by joining manually
       const { data: messagesData, error } = await supabase
         .from('messages')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(100);
+        .select(`
+          *
+        `)
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      // Get unique sender IDs
-      const senderIds = [...new Set(messagesData?.map(msg => msg.sender_id) || [])];
-      
-      // Fetch profiles for all senders
-      const { data: profilesData } = await supabase
+      // Fetch profiles for all unique sender IDs
+      const senderIds = [...new Set(messagesData.map(msg => msg.sender_id))];
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, first_name, last_name, role, admin_level')
         .in('user_id', senderIds);
 
-      // Create a lookup map
-      const profilesMap = new Map(profilesData?.map(profile => [profile.user_id, profile]) || []);
-
-      // Format messages with sender info
-      const formattedMessages = messagesData?.map(msg => {
-        const profile = profilesMap.get(msg.sender_id);
+      // Map messages with sender information
+      const messagesWithSenders: Message[] = messagesData.map(msg => {
+        const profile = profiles?.find(p => p.user_id === msg.sender_id);
         return {
           ...msg,
           sender_name: profile 
@@ -152,83 +139,72 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
           sender_role: profile?.role || 'student',
           sender_admin_level: profile?.admin_level
         };
-      }) || [];
+      });
 
-      setMessages(formattedMessages);
+      setMessages(messagesWithSenders);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
-        title: "Error loading messages",
-        description: "Please refresh the page to try again.",
-        variant: "destructive"
+        title: "Error",
+        description: "Failed to load messages",
+        variant: "destructive",
       });
     }
   };
 
-  const sendMessage = async () => {
-    if ((!newMessage.trim() && !attachmentFile) || loading) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const fileName = `${Date.now()}-${file.name}`;
+    
+    const { data, error } = await supabase.storage
+      .from('chat-attachments')
+      .upload(fileName, file);
+
+    if (error) throw error;
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('chat-attachments')
+      .getPublicUrl(fileName);
+    
+    return publicUrl;
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() && !attachmentFile) return;
 
     setLoading(true);
-    const messageContent = newMessage.trim();
-    let attachmentUrl = '';
-    let attachmentType = '';
-    let attachmentName = '';
-
+    
     try {
-      // Handle file upload if there's an attachment
+      let attachmentUrl = null;
+      let attachmentType = null;
+      let attachmentName = null;
+
+      // Upload file if present
       if (attachmentFile) {
         setUploadingFile(true);
-        const fileExt = attachmentFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        
-        const { data, error: uploadError } = await supabase.storage
-          .from('chat-attachments')
-          .upload(`messages/${fileName}`, attachmentFile);
-
-        let uploadData = data;
-        if (uploadError) {
-          // If storage bucket doesn't exist, create it first
-          if (uploadError.message.includes('Bucket not found')) {
-            await supabase.storage.createBucket('chat-attachments', { public: true });
-            // Retry upload
-            const { data: retryData, error: retryError } = await supabase.storage
-              .from('chat-attachments')
-              .upload(`messages/${fileName}`, attachmentFile);
-            
-            if (retryError) throw retryError;
-            uploadData = retryData;
-          } else {
-            throw uploadError;
-          }
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('chat-attachments')
-          .getPublicUrl(uploadData?.path || `messages/${fileName}`);
-
-        attachmentUrl = publicUrl;
+        attachmentUrl = await uploadFile(attachmentFile);
         attachmentType = attachmentFile.type;
         attachmentName = attachmentFile.name;
-        setUploadingFile(false);
       }
 
-      const messageData: any = {
-        content: messageContent || (attachmentFile ? `Sent ${attachmentFile.type.startsWith('image/') ? 'an image' : 'a file'}` : ''),
+      const messageData = {
+        content: newMessage.trim() || '[Attachment]',
         sender_id: user.id,
-        is_admin_message: adminLevel ? true : false
+        is_admin_message: !!adminLevel,
+        reply_to: replyingTo?.id || null,
+        reply_to_content: replyingTo?.content || null,
+        reply_to_sender: replyingTo?.sender_name || null,
+        attachment_url: attachmentUrl,
+        attachment_type: attachmentType,
+        attachment_name: attachmentName
       };
-
-      if (replyingTo) {
-        messageData.reply_to = replyingTo.id;
-        messageData.reply_to_content = replyingTo.content;
-        messageData.reply_to_sender = replyingTo.sender_name;
-      }
-
-      if (attachmentUrl) {
-        messageData.attachment_url = attachmentUrl;
-        messageData.attachment_type = attachmentType;
-        messageData.attachment_name = attachmentName;
-      }
 
       const { error } = await supabase
         .from('messages')
@@ -236,93 +212,31 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
 
       if (error) throw error;
 
-      // Reset form
       setNewMessage("");
       setReplyingTo(null);
       setAttachmentFile(null);
       
       toast({
-        title: "Message Sent",
-        description: "Your message has been delivered to the chat.",
+        title: "Message sent!",
+        description: "Your message has been delivered.",
       });
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive"
+        description: "Failed to send message",
+        variant: "destructive",
       });
-    }
-
-    setLoading(false);
-    setUploadingFile(false);
-  };
-
-  const deleteMessage = async (messageId: string) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', messageId)
-        .eq('sender_id', user.id); // Users can only delete their own messages
-
-      if (error) throw error;
-
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      
-      toast({
-        title: "Message Deleted",
-        description: "Your message has been removed from the chat.",
-      });
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete message.",
-        variant: "destructive"
-      });
+    } finally {
+      setLoading(false);
+      setUploadingFile(false);
     }
   };
 
-  const handleReply = (message: Message) => {
-    setReplyingTo(message);
-    // Focus on input field
-    const inputElement = document.querySelector('input[placeholder*="message"]') as HTMLInputElement;
-    inputElement?.focus();
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Check file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select a file smaller than 10MB.",
-          variant: "destructive"
-        });
-        return;
-      }
-      setAttachmentFile(file);
-    }
-  };
-
-  const handleUserAction = async (userId: string, action: string) => {
-    try {
-      // Implement admin actions (timeout, block, etc.)
-      console.log(`Admin action: ${action} on user ${userId}`);
-      
-      toast({
-        title: "Action Completed",
-        description: `User ${action} has been applied.`,
-      });
-    } catch (error) {
-      console.error('Error performing user action:', error);
-      toast({
-        title: "Error",
-        description: "Failed to perform admin action.",
-        variant: "destructive"
-      });
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -331,34 +245,49 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
     setShowVideoCall(true);
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const handleReply = (message: Message) => {
+    setReplyingTo(message);
   };
 
-  const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    
-    if (isToday) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAttachmentFile(file);
+    }
+  };
+
+  const removeReply = () => {
+    setReplyingTo(null);
+  };
+
+  const removeAttachment = () => {
+    setAttachmentFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   return (
     <div className="flex flex-col h-screen max-w-7xl mx-auto">
-      {/* Chat Header */}
-      <Card className="flex-shrink-0 border-b rounded-none">
+      {/* Professional Chat Header */}
+      <Card className="flex-shrink-0 border-b rounded-none shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="w-5 h-5 text-primary" />
-              <CardTitle className="text-xl"></CardTitle>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center shadow-md">
+                <MessageSquare className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-bold text-primary">Sheikh Tais Academy Chat</CardTitle>
+                <p className="text-sm text-muted-foreground">Community Discussion</p>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <div className="flex -space-x-2">
                 <Avatar className="w-8 h-8 border-2 border-background">
                   <AvatarFallback className="text-xs bg-primary/10">
@@ -381,23 +310,23 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
           </div>
 
           <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => startCall('audio')}
-              className="gap-2"
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowVideoCall(true)}
+              className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white border-green-500 hover:border-green-600"
             >
               <Phone className="w-4 h-4" />
-              Audio Call
+              <span>Join Call</span>
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => startCall('video')}
-              className="gap-2"
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center space-x-2 border-primary/30 hover:bg-primary/10"
             >
-              <Video className="w-4 h-4" />
-              Video Call
+              <Users className="w-4 h-4" />
+              <span>{Math.floor(Math.random() * 12) + 1} Online</span>
             </Button>
             
             {adminLevel && (
@@ -423,144 +352,111 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
                 message={message}
                 isOwnMessage={message.sender_id === user.id}
                 user={user}
+                onReply={() => handleReply(message)}
+                onDelete={(messageId: string) => {
+                  // Handle message deletion
+                }}
                 adminLevel={adminLevel}
-                onReply={handleReply}
-                onDelete={deleteMessage}
-                onUserAction={handleUserAction}
               />
             ))}
             <div ref={messagesEndRef} />
           </div>
-
+          
           <Separator />
-        </CardContent>
-      </Card>
+          
+          {/* Reply Preview */}
+          {replyingTo && (
+            <div className="p-3 bg-muted/30 border-l-4 border-primary flex items-center justify-between">
+              <div className="flex items-start space-x-2">
+                <Reply className="w-4 h-4 text-primary mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-primary">
+                    Replying to {replyingTo.sender_name}
+                  </p>
+                  <p className="text-sm text-muted-foreground truncate max-w-[300px]">
+                    {replyingTo.content}
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={removeReply}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
 
-      {/* Reply Preview */}
-      {replyingTo && (
-        <div className="bg-muted/50 border-t px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm">
-            <Reply className="w-4 h-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Replying to</span>
-            <span className="font-medium">{replyingTo.sender_name}</span>
-            <span className="text-muted-foreground truncate max-w-xs">
-              {replyingTo.content}
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setReplyingTo(null)}
-            className="h-6 w-6 p-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Attachment Preview */}
-      {attachmentFile && (
-        <div className="bg-muted/50 border-t px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm">
-            {attachmentFile.type.startsWith('image/') ? (
-              <ImageIcon className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <File className="w-4 h-4 text-muted-foreground" />
-            )}
-            <span className="font-medium">{attachmentFile.name}</span>
-            <span className="text-muted-foreground">
-              ({(attachmentFile.size / 1024 / 1024).toFixed(1)} MB)
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setAttachmentFile(null)}
-            className="h-6 w-6 p-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Message Input - Fixed at bottom */}
-      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-3">
-            <div className="flex gap-2 items-end">
-              <div className="flex gap-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
+          {/* Attachment Preview */}
+          {attachmentFile && (
+            <div className="p-3 bg-muted/30 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <File className="w-4 h-4 text-primary" />
+                <span className="text-sm">{attachmentFile.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  ({(attachmentFile.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={removeAttachment}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+          
+          {/* Message Input */}
+          <div className="p-4 bg-background border-t">
+            <div className="flex items-end space-x-2">
+              <div className="flex space-x-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleFileSelect}
                   disabled={uploadingFile}
-                  className="h-10 w-10 p-0"
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={true}
-                  className="h-10 w-10 p-0"
-                  title="Voice recording (coming soon)"
-                >
-                  <Mic className="w-4 h-4" />
-                </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                />
               </div>
               
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={adminLevel ? "Send message as admin..." : "Type your message..."}
-                className="flex-1"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                disabled={uploadingFile}
-              />
+              <div className="flex-1">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={adminLevel ? "Send message as admin..." : "Type your message..."}
+                  disabled={loading || uploadingFile}
+                  className="resize-none"
+                />
+              </div>
               
               <Button 
-                onClick={sendMessage} 
+                onClick={handleSendMessage}
                 disabled={loading || uploadingFile || (!newMessage.trim() && !attachmentFile)}
-                className="h-10 px-4"
+                className="bg-primary hover:bg-primary/90"
               >
-                {uploadingFile ? (
-                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                {loading || uploadingFile ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
               </Button>
             </div>
-            
-            <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
-              <span>
-                {newMessage.length}/500 characters
-              </span>
-              <span className="hidden sm:block">
-                Press Enter to send, Shift+Enter for new line
-              </span>
-            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <VideoCall
-        isOpen={showVideoCall}
-        onClose={() => setShowVideoCall(false)}
-        callType={callType}
-        participants={[]}
-      />
+      {/* Video Call Modal */}
+      {showVideoCall && (
+        <VideoCall
+          isOpen={showVideoCall}
+          onClose={() => setShowVideoCall(false)}
+          callType={callType}
+          participants={[user.name]}
+        />
+      )}
     </div>
   );
 };

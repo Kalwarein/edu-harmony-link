@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -13,8 +14,6 @@ import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { StaffDashboard } from "@/components/dashboard/StaffDashboard";
 import { CalendarPage } from "@/components/pages/CalendarPage";
-import { GradesPage } from "@/components/pages/GradesPage";
-import { AlertsPage } from "@/components/pages/AlertsPage";
 import { EnhancedMessagesPage } from "@/components/messages/EnhancedMessagesPage";
 import { AnnouncementsPage } from "@/components/pages/AnnouncementsPage";
 import { NotificationsPage } from "@/components/notifications/NotificationsPage";
@@ -45,6 +44,7 @@ const App = () => {
   const [adminLevel, setAdminLevel] = useState<string | null>(null);
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
 
   useEffect(() => {
     // Listen for auth changes first
@@ -64,6 +64,7 @@ const App = () => {
                 ...session.user,
                 profile: profile || undefined
               });
+              setShowSplash(true);
             } catch (error) {
               console.error('Error fetching profile:', error);
               setUser({
@@ -93,6 +94,7 @@ const App = () => {
             ...session.user,
             profile: profile || undefined
           });
+          setShowSplash(true);
         } catch (error) {
           console.error('Error fetching profile:', error);
           setUser({
@@ -194,12 +196,6 @@ const App = () => {
           email: user?.email || '',
           role: user?.profile?.role || 'student'
         }} />;
-      case "grades":
-        return <GradesPage user={{
-          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-          email: user?.email || '',
-          role: user?.profile?.role || 'student'
-        }} />;
       case "assignments":
         return <AnnouncementsPage user={{
           id: user?.id || '',
@@ -265,6 +261,17 @@ const App = () => {
               <p className="text-muted-foreground">Loading...</p>
             </div>
           </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  // Show splash screen when user logs in
+  if (showSplash) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <SplashScreen onComplete={() => setShowSplash(false)} />
         </TooltipProvider>
       </QueryClientProvider>
     );

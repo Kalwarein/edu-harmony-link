@@ -33,12 +33,6 @@ export const BottomNav = ({ currentPage, onPageChange, user }: BottomNavProps) =
       path: "calendar"
     },
     { 
-      id: "alerts", 
-      label: "Alerts", 
-      icon: Bell,
-      path: "alerts"
-    },
-    { 
       id: "assignments", 
       label: "Assignments", 
       icon: BookOpen,
@@ -60,7 +54,7 @@ export const BottomNav = ({ currentPage, onPageChange, user }: BottomNavProps) =
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg md:hidden z-50">
-      <div className="grid grid-cols-6 h-16">
+      <div className="grid grid-cols-5 h-16">
         {navItems.map((item) => {
           const isActive = currentPage === item.path || 
             (item.path === "dashboard" && currentPage === "dashboard");
