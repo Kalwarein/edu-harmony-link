@@ -37,7 +37,7 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         </h1>
         
         <p className="text-white/80 text-lg mb-8 animate-pulse">
-          Connecting Education & Community
+          Seek Knowledge From Birth To Death 
         </p>
         
         {/* Loading Spinner */}
