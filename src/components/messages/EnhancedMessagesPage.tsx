@@ -282,8 +282,8 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
                 <MessageSquare className="w-5 h-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-primary">Sheikh Tais Academy Chat</CardTitle>
-                <p className="text-sm text-muted-foreground">Community Discussion</p>
+                <CardTitle className="text-xl font-bold text-primary">Chat</CardTitle>
+                <p className="text-sm text-muted-foreground"></p>
               </div>
             </div>
             
@@ -310,26 +310,7 @@ export const EnhancedMessagesPage = ({ user, adminLevel, adminPermissions }: Mes
           </div>
 
           <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowVideoCall(true)}
-              className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white border-green-500 hover:border-green-600"
-            >
-              <Phone className="w-4 h-4" />
-              <span>Join Call</span>
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center space-x-2 border-primary/30 hover:bg-primary/10"
-            >
-              <Users className="w-4 h-4" />
-              <span>{Math.floor(Math.random() * 12) + 1} Online</span>
-            </Button>
-            
-            {adminLevel && (
+              {adminLevel && (
               <Badge variant="secondary" className="flex items-center gap-1">
                 {adminLevel === "principal" && <Crown className="w-3 h-3" />}
                 {adminLevel === "teacher" && <Star className="w-3 h-3" />}
