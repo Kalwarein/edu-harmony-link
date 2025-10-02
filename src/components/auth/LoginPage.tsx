@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GraduationCap, Users, Shield, Mail, Lock, User } from "lucide-react";
+import { GraduationCap, Users, Shield, Mail, Lock, User, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,6 +17,7 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
@@ -74,7 +75,7 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !fullName || !role) {
+    if (!email || !password || !fullName || !phoneNumber || !role) {
       toast({
         title: "Missing Information",
         description: "Please fill in all fields.",
@@ -108,6 +109,7 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
             user_id: data.user.id,
             first_name: fullName.split(' ')[0],
             last_name: fullName.split(' ').slice(1).join(' '),
+            phone_number: phoneNumber,
             role: role as any
           });
 
@@ -246,6 +248,21 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
                         onChange={(e) => setFullName(e.target.value)}
                         className="pl-10"
                         placeholder="Enter your full name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="pl-10"
+                        placeholder="Enter your phone number"
                       />
                     </div>
                   </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,7 +15,9 @@ import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { StaffDashboard } from "@/components/dashboard/StaffDashboard";
 import { CalendarPage } from "@/components/pages/CalendarPage";
-import { EnhancedMessagesPage } from "@/components/messages/EnhancedMessagesPage";
+import { ConversationsList } from "@/components/messages/ConversationsList";
+import { ContactsList } from "@/components/messages/ContactsList";
+import { DirectChatPage } from "@/components/messages/DirectChatPage";
 import { AnnouncementsPage } from "@/components/pages/AnnouncementsPage";
 import { NotificationsPage } from "@/components/notifications/NotificationsPage";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,13 +141,8 @@ const App = () => {
   };
 
   const handleMessagesClick = () => {
-    if (adminLevel) {
-      // If admin, go directly to messages with admin powers
-      setCurrentPage("messages");
-    } else {
-      // Show admin auth dialog for regular users
-      setShowAdminAuth(true);
-    }
+    // Just navigate to messages, no admin auth needed for messaging
+    setCurrentPage("messages");
   };
 
   const renderDashboard = () => {
@@ -167,84 +165,6 @@ const App = () => {
         return <StaffDashboard user={userProps} onNavigate={setCurrentPage} />;
       default:
         return <StudentDashboard user={userProps} onNavigate={setCurrentPage} />;
-    }
-  };
-
-  const renderCurrentPage = () => {
-    if (showAdminPanel) {
-      return (
-        <AdminPanel
-          adminLevel={adminLevel!}
-          adminPermissions={adminPermissions}
-          user={{
-            id: user?.id || '',
-            email: user?.email || '',
-            name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-            role: user?.profile?.role || 'student'
-          }}
-          onClose={handleAdminExit}
-        />
-      );
-    }
-
-    switch (currentPage) {
-      case "dashboard":
-        return renderDashboard();
-      case "calendar":
-        return <CalendarPage user={{
-          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-          email: user?.email || '',
-          role: user?.profile?.role || 'student'
-        }} />;
-      case "assignments":
-        return <AnnouncementsPage user={{
-          id: user?.id || '',
-          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-          email: user?.email || '',
-          role: user?.profile?.role || 'student'
-        }} />;
-      case "notifications":
-        return <NotificationsPage user={{
-          id: user?.id || '',
-          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-          email: user?.email || '',
-          role: user?.profile?.role || 'student'
-        }} />;
-      case "messages":
-        return (
-          <EnhancedMessagesPage 
-            user={{
-              id: user?.id || '',
-              email: user?.email || '',
-              name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-              role: user?.profile?.role || 'student'
-            }} 
-            adminLevel={adminLevel || undefined} 
-            adminPermissions={adminPermissions.length > 0 ? adminPermissions : undefined} 
-          />
-        );
-      case "announcements":
-        return <AnnouncementsPage user={{
-          id: user?.id || '',
-          name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-          email: user?.email || '',
-          role: user?.profile?.role || 'student'
-        }} />;
-      case "admin":
-        return (
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-muted-foreground">Administrator Portal</h2>
-            <p className="text-muted-foreground mt-2 mb-4">Access administrative functions</p>
-            <Button 
-              onClick={() => setShowAdminAuth(true)}
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
-            >
-              Admin Login
-            </Button>
-          </div>
-        );
-      default:
-        return renderDashboard();
     }
   };
 
@@ -293,43 +213,82 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <div className="min-h-screen bg-background">
-          <Navbar 
-            user={{
-              name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-              email: user?.email || '',
-              role: user?.profile?.role || 'student'
-            }} 
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            onLogout={handleLogout}
-            onMessagesClick={handleMessagesClick}
-            adminLevel={adminLevel}
-            showAdminPanel={showAdminPanel}
-          />
-          <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${currentPage === 'messages' ? 'py-0' : 'py-8'} ${currentPage === 'admin' ? 'pb-20 md:pb-8' : ''}`}>
-            {renderCurrentPage()}
-          </main>
+        <Router>
+          <Toaster />
+          <Sonner />
+          <div className="min-h-screen bg-background">
+            <Navbar 
+              user={{
+                name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                email: user?.email || '',
+                role: user?.profile?.role || 'student'
+              }} 
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onLogout={handleLogout}
+              onMessagesClick={handleMessagesClick}
+              adminLevel={adminLevel}
+              showAdminPanel={showAdminPanel}
+            />
+            <main className="pb-20">
+              <Routes>
+                <Route path="/" element={renderDashboard()} />
+                <Route path="/calendar" element={<CalendarPage user={{
+                  name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                  email: user?.email || '',
+                  role: user?.profile?.role || 'student'
+                }} />} />
+                <Route path="/messages" element={<ConversationsList currentUserId={user?.id || ''} />} />
+                <Route path="/messages/contacts" element={<ContactsList currentUserId={user?.id || ''} />} />
+                <Route path="/messages/chat/:conversationId" element={<DirectChatPage currentUserId={user?.id || ''} currentUserName={user?.profile?.first_name || 'User'} />} />
+                <Route path="/notifications" element={<NotificationsPage user={{
+                  id: user?.id || '',
+                  name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                  email: user?.email || '',
+                  role: user?.profile?.role || 'student'
+                }} />} />
+                <Route path="/announcements" element={<AnnouncementsPage user={{
+                  id: user?.id || '',
+                  name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                  email: user?.email || '',
+                  role: user?.profile?.role || 'student'
+                }} />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
+            
+            {/* Mobile Bottom Navigation */}
+            <BottomNav 
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              user={{
+                name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                email: user?.email || '',
+                role: user?.profile?.role || 'student'
+              }}
+            />
+          </div>
           
-          {/* Mobile Bottom Navigation */}
-          <BottomNav 
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            user={{
-              name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-              email: user?.email || '',
-              role: user?.profile?.role || 'student'
-            }}
+          <AdminAuth 
+            isOpen={showAdminAuth}
+            onClose={() => setShowAdminAuth(false)}
+            onAuthenticated={handleAdminAuthenticated}
           />
-        </div>
-        
-        <AdminAuth 
-          isOpen={showAdminAuth}
-          onClose={() => setShowAdminAuth(false)}
-          onAuthenticated={handleAdminAuthenticated}
-        />
+          
+          {showAdminPanel && (
+            <AdminPanel
+              adminLevel={adminLevel!}
+              adminPermissions={adminPermissions}
+              user={{
+                id: user?.id || '',
+                email: user?.email || '',
+                name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                role: user?.profile?.role || 'student'
+              }}
+              onClose={handleAdminExit}
+            />
+          )}
+        </Router>
       </TooltipProvider>
     </QueryClientProvider>
   );

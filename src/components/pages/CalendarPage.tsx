@@ -143,7 +143,7 @@ export const CalendarPage = ({ user }: CalendarPageProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 px-4 max-w-7xl mx-auto pt-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-secondary/10 rounded-xl p-6 border">
         <div className="flex items-center justify-between">

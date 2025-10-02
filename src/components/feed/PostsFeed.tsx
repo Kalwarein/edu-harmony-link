@@ -154,7 +154,7 @@ export const PostsFeed = ({ user }: PostsFeedProps) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       {posts.map((post) => (
         <Card key={post.id} className="overflow-hidden hover:shadow-md transition-shadow">
           <CardHeader>

@@ -14,9 +14,9 @@ interface AnnouncementsPageProps {
 
 export const AnnouncementsPage = ({ user }: AnnouncementsPageProps) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 px-4 max-w-7xl mx-auto">
       {/* Page Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-6 pt-6">
         <div className="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center">
           <Megaphone className="w-6 h-6 text-white" />
         </div>

@@ -140,6 +140,74 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          participant_1: string
+          participant_2: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          participant_1: string
+          participant_2: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          participant_1?: string
+          participant_2?: string
+        }
+        Relationships: []
+      }
+      direct_messages: {
+        Row: {
+          attachment_name: string | null
+          attachment_type: string | null
+          attachment_url: string | null
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          sender_id: string
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          sender_id: string
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           created_at: string
@@ -316,6 +384,7 @@ export type Database = {
           id: string
           is_blocked: boolean | null
           last_name: string
+          phone_number: string | null
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"]
           timeout_until: string | null
@@ -330,6 +399,7 @@ export type Database = {
           id?: string
           is_blocked?: boolean | null
           last_name: string
+          phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           timeout_until?: string | null
@@ -344,6 +414,7 @@ export type Database = {
           id?: string
           is_blocked?: boolean | null
           last_name?: string
+          phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           timeout_until?: string | null
