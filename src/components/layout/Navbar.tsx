@@ -22,14 +22,11 @@ import {
   Settings, 
   LogOut,
   Home,
-  Calendar,
   BookOpen,
-  Users,
   MessageSquare,
-  FileText,
-  BarChart3,
   Megaphone
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 interface NavbarProps {
@@ -85,32 +82,23 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
 
   const getNavItems = () => {
     const commonItems = [
-      { id: "dashboard", label: "Dashboard", icon: Home },
-      { id: "announcements", label: "School Feed", icon: Megaphone },
-      { id: "notifications", label: "Notifications", icon: Bell },
-      { id: "messages", label: "Messages", icon: MessageSquare },
-      { id: "calendar", label: "Calendar", icon: Calendar },
+      { id: "dashboard", label: "Dashboard", icon: Home, path: "/" },
+      { id: "announcements", label: "School Feed", icon: Megaphone, path: "/announcements" },
+      { id: "notifications", label: "Notifications", icon: Bell, path: "/notifications" },
+      { id: "messages", label: "Messages", icon: MessageSquare, path: "/messages" },
     ];
 
     if (user.role === "student") {
       return [
         ...commonItems,
-        { id: "grades", label: "Grades", icon: BarChart3 },
-        { id: "assignments", label: "Assignments", icon: BookOpen },
-      ];
-    }
-
-    if (user.role === "parent") {
-      return [
-        ...commonItems,
-        { id: "grades", label: "Child's Grades", icon: BarChart3 },
+        { id: "assignments", label: "Assignments", icon: BookOpen, path: "/announcements" },
       ];
     }
 
     if (user.role === "staff") {
       return [
         ...commonItems,
-        { id: "assignments", label: "Assignments", icon: BookOpen },
+        { id: "assignments", label: "Assignments", icon: BookOpen, path: "/announcements" },
       ];
     }
 
@@ -119,9 +107,11 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
 
   const navItems = getNavItems();
 
+  const navigate = useNavigate();
+
   const NavItems = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div className="flex flex-col space-y-2">
-      {navItems.map((item) => (
+      {navItems.map((item: any) => (
         <Button
           key={item.id}
           variant={currentPage === item.id ? "default" : "ghost"}
@@ -131,13 +121,8 @@ export const Navbar = ({ user, currentPage, onPageChange, onLogout, onMessagesCl
               : "hover:bg-muted"
           }`}
           onClick={() => {
-            if (item.id === "notifications") {
-              onPageChange("notifications");
-            } else if (item.id === "messages") {
-              onMessagesClick?.();
-            } else {
-              onPageChange(item.id);
-            }
+            navigate(item.path);
+            onPageChange(item.id);
             onItemClick?.();
           }}
         >

@@ -14,10 +14,10 @@ import { Navbar } from "@/components/layout/Navbar";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { ParentDashboard } from "@/components/dashboard/ParentDashboard";
 import { StaffDashboard } from "@/components/dashboard/StaffDashboard";
-import { CalendarPage } from "@/components/pages/CalendarPage";
 import { ConversationsList } from "@/components/messages/ConversationsList";
 import { ContactsList } from "@/components/messages/ContactsList";
 import { DirectChatPage } from "@/components/messages/DirectChatPage";
+import { GroupChatPage } from "@/components/messages/GroupChatPage";
 import { AnnouncementsPage } from "@/components/pages/AnnouncementsPage";
 import { NotificationsPage } from "@/components/notifications/NotificationsPage";
 import { supabase } from "@/integrations/supabase/client";
@@ -233,14 +233,22 @@ const App = () => {
             <main className="pb-20">
               <Routes>
                 <Route path="/" element={renderDashboard()} />
-                <Route path="/calendar" element={<CalendarPage user={{
-                  name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
-                  email: user?.email || '',
-                  role: user?.profile?.role || 'student'
-                }} />} />
                 <Route path="/messages" element={<ConversationsList currentUserId={user?.id || ''} />} />
                 <Route path="/messages/contacts" element={<ContactsList currentUserId={user?.id || ''} />} />
                 <Route path="/messages/chat/:conversationId" element={<DirectChatPage currentUserId={user?.id || ''} currentUserName={user?.profile?.first_name || 'User'} />} />
+                <Route path="/messages/group" element={<GroupChatPage user={{
+                  id: user?.id || '',
+                  name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',
+                  email: user?.email || '',
+                  role: user?.profile?.role || 'student'
+                }} adminLevel={adminLevel} />} />
+                <Route path="/admin" element={
+                  <div className="p-4">
+                    <Button onClick={() => setShowAdminAuth(true)} className="w-full">
+                      Access Admin Panel
+                    </Button>
+                  </div>
+                } />
                 <Route path="/notifications" element={<NotificationsPage user={{
                   id: user?.id || '',
                   name: user?.profile?.first_name || user?.email?.split('@')[0] || 'User',

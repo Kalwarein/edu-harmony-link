@@ -31,12 +31,6 @@ export const BottomNav = ({ currentPage, onPageChange, user }: BottomNavProps) =
       path: "/"
     },
     { 
-      id: "calendar", 
-      label: "Calendar", 
-      icon: Calendar,
-      path: "/calendar"
-    },
-    { 
       id: "assignments", 
       label: "Assignments", 
       icon: BookOpen,
@@ -53,11 +47,21 @@ export const BottomNav = ({ currentPage, onPageChange, user }: BottomNavProps) =
       label: "Notifications", 
       icon: Bell,
       path: "/notifications"
+    },
+    { 
+      id: "admin", 
+      label: "Admin", 
+      icon: Shield,
+      path: "/admin"
     }
   ];
 
   const handleNavClick = (path: string, id: string) => {
-    navigate(path);
+    if (id === "admin") {
+      navigate("/admin");
+    } else {
+      navigate(path);
+    }
     onPageChange(id);
   };
 

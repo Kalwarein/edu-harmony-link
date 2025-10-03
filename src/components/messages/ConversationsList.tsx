@@ -109,19 +109,33 @@ export const ConversationsList = ({ currentUserId }: ConversationsListProps) => 
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="fixed top-0 left-0 right-0 bg-background border-b z-50 shadow">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Messages</CardTitle>
-          <Button
-            size="icon"
-            className="bg-primary hover:bg-primary/90 rounded-full"
-            onClick={() => navigate("/messages/contacts")}
-          >
-            <Plus className="w-5 h-5" />
-          </Button>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Messages</CardTitle>
+            <Button
+              size="icon"
+              className="bg-primary hover:bg-primary/90 rounded-full"
+              onClick={() => navigate("/messages/contacts")}
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/messages/group")}
+              className="flex-1 border-2"
+            >
+              Group Chat
+            </Button>
+            <Button variant="default" className="flex-1">
+              Private Chats
+            </Button>
+          </div>
         </CardHeader>
       </div>
 
-      <div className="pt-20 px-4">
+      <div className="pt-32 px-4">
         {loading ? (
           <div className="text-center py-8">
             <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
