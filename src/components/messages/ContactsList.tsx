@@ -77,14 +77,11 @@ export const ContactsList = ({ currentUserId }: ContactsListProps) => {
 
   const handleStartChat = async (contact: Contact) => {
     try {
-      const participant1 = currentUserId < contact.user_id ? currentUserId : contact.user_id;
-      const participant2 = currentUserId < contact.user_id ? contact.user_id : currentUserId;
-
+      // Check for existing conversation in both directions
       const { data: existingConv, error: fetchError } = await supabase
         .from("conversations")
         .select("id")
-        .eq("participant_1", participant1)
-        .eq("participant_2", participant2)
+        .or(`and(participant_1.eq.${currentUserId},participant_2.eq.${contact.user_id}),and(participant_1.eq.${contact.user_id},participant_2.eq.${currentUserId})`)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
@@ -92,22 +89,29 @@ export const ContactsList = ({ currentUserId }: ContactsListProps) => {
       let conversationId = existingConv?.id;
 
       if (!conversationId) {
+        // Create new conversation with consistent ordering
+        const participant1 = currentUserId < contact.user_id ? currentUserId : contact.user_id;
+        const participant2 = currentUserId < contact.user_id ? contact.user_id : currentUserId;
+
         const { data: newConv, error: createError } = await supabase
           .from("conversations")
           .insert({ participant_1: participant1, participant_2: participant2 })
           .select("id")
           .single();
 
-        if (createError) throw createError;
+        if (createError) {
+          console.error("Create conversation error:", createError);
+          throw createError;
+        }
         conversationId = newConv.id;
       }
 
       navigate(`/messages/chat/${conversationId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error starting chat:", error);
       toast({
         title: "Error",
-        description: "Failed to start chat",
+        description: error.message || "Failed to start chat. Please try again.",
         variant: "destructive",
       });
     }

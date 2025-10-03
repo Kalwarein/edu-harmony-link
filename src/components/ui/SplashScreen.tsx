@@ -9,8 +9,20 @@ export const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
+    // Check if splash has been shown before
+    const hasShownSplash = localStorage.getItem("hasShownSplash");
+    
+    if (hasShownSplash === "true") {
+      // Skip splash if already shown
+      setIsVisible(false);
+      onComplete();
+      return;
+    }
+
+    // Show splash and mark as shown
     const timer = setTimeout(() => {
       setIsVisible(false);
+      localStorage.setItem("hasShownSplash", "true");
       setTimeout(onComplete, 500); // Allow fade out animation
     }, 2500); // Show for 2.5 seconds
 

@@ -221,21 +221,32 @@ export const GroupChatPage = ({ user, adminLevel }: GroupChatPageProps) => {
         attachmentName = "Voice Message";
       }
 
-      const { error } = await supabase.from("messages").insert({
+      const messageData = {
         content: newMessage.trim() || (audioBlob ? "[Voice Message]" : "[Attachment]"),
         sender_id: user.id,
-        sender_name: user.name,
-        sender_role: user.role,
-        sender_admin_level: adminLevel,
         attachment_url: attachmentUrl,
         attachment_type: attachmentType,
         attachment_name: attachmentName,
-        reply_to: replyTo?.id,
-        reply_to_content: replyTo?.content,
-        reply_to_sender: replyTo?.sender_name,
-      });
+        is_admin_message: adminLevel ? true : false,
+        reply_to: replyTo?.id || null,
+        reply_to_content: replyTo?.content || null,
+        reply_to_sender: replyTo?.sender_name || null,
+      };
 
-      if (error) throw error;
+      console.log("Sending group message:", messageData);
+
+      const { data, error } = await supabase
+        .from("messages")
+        .insert(messageData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Message insert error:", error);
+        throw error;
+      }
+
+      console.log("Message sent successfully:", data);
 
       setNewMessage("");
       setAttachmentFile(null);
@@ -243,11 +254,16 @@ export const GroupChatPage = ({ user, adminLevel }: GroupChatPageProps) => {
       setAudioBlob(null);
       setReplyTo(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (error) {
+
+      toast({
+        title: "Success",
+        description: "Message sent",
+      });
+    } catch (error: any) {
       console.error("Error sending message:", error);
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: error.message || "Failed to send message. Please try again.",
         variant: "destructive",
       });
     } finally {

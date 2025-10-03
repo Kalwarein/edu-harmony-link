@@ -47,7 +47,7 @@ const App = () => {
   const [adminLevel, setAdminLevel] = useState<string | null>(null);
   const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [showSplash, setShowSplash] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     // Listen for auth changes first
