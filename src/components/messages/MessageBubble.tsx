@@ -137,7 +137,7 @@ export const MessageBubble = ({
         <AvatarFallback className={`text-xs font-medium ${
           isAdminMessage ? 'bg-primary/10 text-primary' : 'bg-muted'
         }`}>
-          {message.sender_name.charAt(0).toUpperCase()}
+          {message.sender_name?.charAt(0)?.toUpperCase() || "?"}
         </AvatarFallback>
       </Avatar>
       

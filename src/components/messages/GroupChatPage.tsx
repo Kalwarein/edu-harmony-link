@@ -80,15 +80,34 @@ export const GroupChatPage = ({ user, adminLevel }: GroupChatPageProps) => {
 
   const fetchMessages = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: messagesData, error } = await supabase
         .from("messages")
         .select("*")
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
-      if (data && data.length > 0) {
-        setLastSeenMessageId(data[data.length - 1].id);
+
+      // Enrich messages with sender details from profiles
+      const enrichedMessages = await Promise.all(
+        (messagesData || []).map(async (msg) => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, role, admin_level")
+            .eq("user_id", msg.sender_id)
+            .single();
+
+          return {
+            ...msg,
+            sender_name: profile ? `${profile.first_name} ${profile.last_name}` : "Unknown User",
+            sender_role: profile?.role || "user",
+            sender_admin_level: profile?.admin_level || null,
+          };
+        })
+      );
+
+      setMessages(enrichedMessages);
+      if (enrichedMessages && enrichedMessages.length > 0) {
+        setLastSeenMessageId(enrichedMessages[enrichedMessages.length - 1].id);
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
