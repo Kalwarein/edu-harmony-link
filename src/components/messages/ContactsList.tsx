@@ -77,6 +77,8 @@ export const ContactsList = ({ currentUserId }: ContactsListProps) => {
 
   const handleStartChat = async (contact: Contact) => {
     try {
+      console.log("Starting chat with:", contact.user_id, "Current user:", currentUserId);
+
       // Check for existing conversation in both directions
       const { data: existingConv, error: fetchError } = await supabase
         .from("conversations")
@@ -84,28 +86,43 @@ export const ContactsList = ({ currentUserId }: ContactsListProps) => {
         .or(`and(participant_1.eq.${currentUserId},participant_2.eq.${contact.user_id}),and(participant_1.eq.${contact.user_id},participant_2.eq.${currentUserId})`)
         .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      console.log("Existing conversation check:", existingConv, fetchError);
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        throw fetchError;
+      }
 
       let conversationId = existingConv?.id;
 
       if (!conversationId) {
+        console.log("Creating new conversation...");
+        
         // Create new conversation with consistent ordering
         const participant1 = currentUserId < contact.user_id ? currentUserId : contact.user_id;
         const participant2 = currentUserId < contact.user_id ? contact.user_id : currentUserId;
 
+        console.log("Participants:", participant1, participant2);
+
         const { data: newConv, error: createError } = await supabase
           .from("conversations")
-          .insert({ participant_1: participant1, participant_2: participant2 })
+          .insert({ 
+            participant_1: participant1, 
+            participant_2: participant2,
+            last_message_at: new Date().toISOString()
+          })
           .select("id")
           .single();
 
+        console.log("New conversation created:", newConv, createError);
+
         if (createError) {
-          console.error("Create conversation error:", createError);
+          console.error("Create conversation error details:", createError);
           throw createError;
         }
         conversationId = newConv.id;
       }
 
+      console.log("Navigating to conversation:", conversationId);
       navigate(`/messages/chat/${conversationId}`);
     } catch (error: any) {
       console.error("Error starting chat:", error);
@@ -154,12 +171,12 @@ export const ContactsList = ({ currentUserId }: ContactsListProps) => {
           filteredContacts.map((contact) => (
             <Card
               key={contact.user_id}
-              className="cursor-pointer hover:bg-accent transition-colors"
+              className="cursor-pointer hover:shadow-elegant transition-all duration-300 hover:scale-[1.02]"
               onClick={() => handleStartChat(contact)}
             >
               <CardContent className="flex items-center gap-3 p-4">
-                <Avatar className="w-12 h-12">
-                  <AvatarFallback className="bg-gradient-to-r from-primary to-secondary text-white">
+                <Avatar className="w-12 h-12 ring-2 ring-primary/20">
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-academy-gold text-foreground font-bold">
                     {contact.first_name[0]}{contact.last_name[0]}
                   </AvatarFallback>
                 </Avatar>
@@ -169,7 +186,12 @@ export const ContactsList = ({ currentUserId }: ContactsListProps) => {
                   </p>
                   <p className="text-sm text-muted-foreground">{contact.phone_number}</p>
                 </div>
-                <Badge variant="secondary">{contact.role}</Badge>
+                <Badge 
+                  variant="secondary"
+                  className="bg-gradient-to-r from-academy-cream to-muted text-academy-brown"
+                >
+                  {contact.role}
+                </Badge>
               </CardContent>
             </Card>
           ))

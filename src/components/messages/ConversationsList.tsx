@@ -13,15 +13,18 @@ interface Conversation {
   participant_1: string;
   participant_2: string;
   last_message_at: string;
-  other_user?: {
+  otherUser?: {
     first_name: string;
     last_name: string;
     phone_number: string;
   };
-  last_message?: {
+  lastMessage?: {
     content: string;
     sender_id: string;
+    created_at: string;
+    is_read: boolean;
   };
+  unreadCount?: number;
 }
 
 interface ConversationsListProps {
@@ -37,24 +40,37 @@ export const ConversationsList = ({ currentUserId }: ConversationsListProps) => 
   useEffect(() => {
     fetchConversations();
 
-    const channel = supabase
-      .channel("conversations-list")
+    // Listen for new conversations
+    const conversationsChannel = supabase
+      .channel("conversations-list-changes")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations" },
-        () => fetchConversations()
+        () => {
+          console.log("Conversations changed, refetching...");
+          fetchConversations();
+        }
       )
+      .subscribe();
+
+    // Listen for new messages to update last message
+    const messagesChannel = supabase
+      .channel("direct-messages-list-changes")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "direct_messages" },
-        () => fetchConversations()
+        () => {
+          console.log("New message received, refetching conversations...");
+          fetchConversations();
+        }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(conversationsChannel);
+      supabase.removeChannel(messagesChannel);
     };
-  }, []);
+  }, [currentUserId]);
 
   const fetchConversations = async () => {
     try {
@@ -71,6 +87,8 @@ export const ConversationsList = ({ currentUserId }: ConversationsListProps) => 
           const otherUserId =
             conv.participant_1 === currentUserId ? conv.participant_2 : conv.participant_1;
 
+          console.log("Fetching details for conversation:", conv.id, "other user:", otherUserId);
+
           const { data: profile } = await supabase
             .from("profiles")
             .select("first_name, last_name, phone_number")
@@ -79,19 +97,30 @@ export const ConversationsList = ({ currentUserId }: ConversationsListProps) => 
 
           const { data: lastMsg } = await supabase
             .from("direct_messages")
-            .select("content, sender_id")
+            .select("content, created_at, is_read, sender_id")
             .eq("conversation_id", conv.id)
             .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle();
 
+          // Count unread messages
+          const { count: unreadCount } = await supabase
+            .from("direct_messages")
+            .select("*", { count: "exact", head: true })
+            .eq("conversation_id", conv.id)
+            .eq("is_read", false)
+            .neq("sender_id", currentUserId);
+
           return {
             ...conv,
-            other_user: profile || undefined,
-            last_message: lastMsg || undefined,
+            otherUser: profile || undefined,
+            lastMessage: lastMsg || undefined,
+            unreadCount: unreadCount || 0,
           };
         })
       );
+
+      console.log("Conversations with details:", conversationsWithDetails);
 
       setConversations(conversationsWithDetails);
     } catch (error) {
@@ -159,29 +188,40 @@ export const ConversationsList = ({ currentUserId }: ConversationsListProps) => 
             {conversations.map((conv) => (
               <Card
                 key={conv.id}
-                className="cursor-pointer hover:bg-accent transition-colors"
+                className="cursor-pointer hover:shadow-elegant transition-all duration-300 hover:scale-[1.02] relative overflow-hidden"
                 onClick={() => navigate(`/messages/chat/${conv.id}`)}
               >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <Avatar className="w-14 h-14">
-                    <AvatarFallback className="bg-gradient-to-r from-primary to-secondary text-white text-lg">
-                      {conv.other_user?.first_name[0]}
-                      {conv.other_user?.last_name[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold truncate">
-                        {conv.other_user?.first_name} {conv.other_user?.last_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {conv.last_message?.sender_id === currentUserId && "You: "}
-                      {conv.last_message?.content || "No messages yet"}
+                {conv.unreadCount && conv.unreadCount > 0 && (
+                  <div className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold z-10">
+                    {conv.unreadCount}
+                  </div>
+                )}
+                <CardContent className="flex items-center gap-4 p-4">
+                <Avatar className="w-14 h-14 ring-2 ring-primary/20">
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-academy-gold text-foreground text-lg font-bold">
+                    {conv.otherUser?.first_name?.[0]}
+                    {conv.otherUser?.last_name?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`font-semibold truncate ${conv.unreadCount && conv.unreadCount > 0 ? "text-foreground" : ""}`}>
+                      {conv.otherUser?.first_name} {conv.otherUser?.last_name}
                     </p>
+                    {conv.lastMessage && (
+                      <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                        {formatDistanceToNow(new Date(conv.lastMessage.created_at), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                  {conv.lastMessage ? (
+                    <p className={`text-sm truncate ${conv.unreadCount && conv.unreadCount > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                      {conv.lastMessage.sender_id === currentUserId && "You: "}
+                      {conv.lastMessage.content}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No messages yet</p>
+                  )}
                   </div>
                 </CardContent>
               </Card>

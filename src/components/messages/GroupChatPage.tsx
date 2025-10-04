@@ -44,21 +44,51 @@ export const GroupChatPage = ({ user, adminLevel }: GroupChatPageProps) => {
 
   useEffect(() => {
     fetchMessages();
+
     const channel = supabase
-      .channel("group-messages")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
-        setMessages((prev) => [...prev, payload.new]);
-        if (payload.new.sender_id !== user.id) {
-          setUnreadCount((prev) => prev + 1);
+      .channel("group-chat-messages")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        async (payload) => {
+          console.log("New message received:", payload);
+          const newMessage = payload.new as any;
+          
+          // Fetch sender profile for the new message
+          const { data: senderProfile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, role, admin_level")
+            .eq("user_id", newMessage.sender_id)
+            .single();
+
+          const enrichedMessage = {
+            ...newMessage,
+            sender_name: senderProfile 
+              ? `${senderProfile.first_name} ${senderProfile.last_name}`
+              : "Unknown",
+            sender_role: senderProfile?.role || "student",
+            sender_admin_level: senderProfile?.admin_level,
+          };
+
+          setMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some(m => m.id === enrichedMessage.id)) return prev;
+            return [...prev, enrichedMessage];
+          });
+
+          if (newMessage.sender_id !== user.id) {
+            setUnreadCount((prev) => prev + 1);
+          }
+          
+          setTimeout(scrollToBottom, 100);
         }
-        scrollToBottom();
-      })
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -333,7 +363,8 @@ export const GroupChatPage = ({ user, adminLevel }: GroupChatPageProps) => {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto pt-20 pb-32 px-4 space-y-4">
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto pt-20 pb-32 px-4 space-y-3 bg-gradient-to-b from-background to-academy-cream/20">
         {messages.map((message) => (
           <div key={message.id} id={`message-${message.id}`}>
             <MessageBubble
@@ -349,7 +380,7 @@ export const GroupChatPage = ({ user, adminLevel }: GroupChatPageProps) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 bg-background border-t p-4 z-50">
+      <div className="fixed bottom-16 left-0 right-0 bg-background/95 backdrop-blur-sm border-t shadow-elegant p-4 z-50">
         {replyTo && (
           <div className="mb-2 p-2 bg-muted/30 rounded-lg flex items-center justify-between">
             <div className="flex-1 min-w-0">
